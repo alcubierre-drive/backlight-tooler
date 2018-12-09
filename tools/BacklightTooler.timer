@@ -1,0 +1,8 @@
+[Unit]
+Description=Timer to Control the Backlight Automation
+
+[Timer]
+OnCalendar=*:0/15
+
+[Install]
+WantedBy=timers.target

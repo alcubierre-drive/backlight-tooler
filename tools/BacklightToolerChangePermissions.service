@@ -1,0 +1,11 @@
+[Unit]
+Description=Change permissions for backlight file
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/chmod a+rw /sys/class/backlight/intel_backlight/brightness
+ExecStart=/usr/bin/chmod a+rw /sys/devices/platform/thinkpad_acpi/leds/tpacpi::kbd_backlight/brightness
+
+[Install]
+WantedBy=multi-user.target

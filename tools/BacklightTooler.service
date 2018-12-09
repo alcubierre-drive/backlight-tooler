@@ -1,0 +1,6 @@
+[Unit]
+Description=Automated Backlight Setting
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/BacklightTooler auto 12
