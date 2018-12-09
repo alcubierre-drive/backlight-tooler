@@ -16,6 +16,11 @@ minutes. For changes of the default \fBauto\fR value, consider copying
 \fB/usr/lib/systemd/user/BacklightTooler.service\fR to
 \fB~/.config/systemd/user/\fR and edit the file from there.
 
+.SH CONFIG
+
+The configuration file \fI/etc/BacklightTooler.conf\fR has several options that
+are explained in the file that's shipped with the package itself.
+
 .SH EXAMPLE \fI.xbindkeysrc\fR
 
 "BacklightTooler inc"
@@ -32,6 +37,3 @@ minutes. For changes of the default \fBauto\fR value, consider copying
 
 "BacklightToolerServiceToggle"
   XF86Tools
-
-.SH BUGS
-Wrong paths in the config file will lead to segfaults.

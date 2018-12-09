@@ -36,6 +36,7 @@ struct config {
 };
 typedef struct config config;
 
+config InitConfig();
 void ReadConfig( config*, char* path );
 void DefaultConfig( config* );
 void dbg_print_config( config* );

@@ -173,7 +173,7 @@ void toggleBrightness(config* cfg) {
 }
 
 int main(int argc, char **argv) {
-    config cfg;
+    config cfg = InitConfig();
     ReadConfig(&cfg, "/etc/BacklightTooler.conf");
     DefaultConfig(&cfg);
 

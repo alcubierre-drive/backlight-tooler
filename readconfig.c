@@ -14,8 +14,6 @@
 #define W_HIGH 11
 #define BADKEY -1
 
-void dbg_print_config( config* );
-
 typedef struct { char *key; int val; } t_symstruct;
 static t_symstruct lookuptable[] = {
     { "WebcamDevice", W_DEV },
@@ -208,4 +206,21 @@ void dbg_print_config( config* cfg ) {
             cfg->MinBrightness,
             cfg->DefaultAmount,
             cfg->DefaultSpeed);
+}
+
+config InitConfig() {
+    config c;
+    c.has_WebcamDevice = false;
+    c.has_BacklightDevice = false;
+    c.has_KeyboardDevice = false;
+    c.has_UseKeyboard = false;
+    c.has_MaxBrightness = false;
+    c.has_MinBrightness = false;
+    c.has_DefaultSpeed = false;
+    c.has_DefaultAmount = false;
+    c.has_WebcamWidth = false;
+    c.has_WebcamHeight = false;
+    c.has_WebcamLightValueLow = false;
+    c.has_WebcamLightValueHigh = false;
+    return c;
 }
