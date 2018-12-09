@@ -55,24 +55,32 @@ void ModifyConfig( config* cfg, char* line ) {
     switch(keyfromstring(key)) {
         case W_DEV:
             strcpy(cfg->WebcamDevice, val);
+            break;
         case B_DEV:
             strcpy(cfg->BacklightDevice, val);
+            break;
         case K_DEV:
             strcpy(cfg->KeyboardDevice, val);
+            break;
         case U_KBD:
             if (strcmp(val,"true") == 0) {
                 cfg->UseKeyboard = true;
             } else {
                 cfg->UseKeyboard = false;
             }
+            break;
         case MAX_B:
             cfg->MaxBrightness = atoi(val);
+            break;
         case MIN_B:
             cfg->MinBrightness = atoi(val);
+            break;
         case DEF_S:
             cfg->DefaultSpeed = atoi(val);
+            break;
         case DEF_A:
             cfg->DefaultAmount = atoi(val);
+            break;
         case BADKEY:
             break;
     }
