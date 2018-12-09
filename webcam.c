@@ -6,8 +6,8 @@ int getLightLevel(config* cfg) {
     ioctl(fd, VIDIOC_QUERYCAP, &cap);
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    format.fmt.pix.width = 1280;
-    format.fmt.pix.height = 720;
+    format.fmt.pix.width = cfg->WebcamWidth;
+    format.fmt.pix.height = cfg->WebcamHeight;
 
     ioctl(fd, VIDIOC_S_FMT, &format);
     struct v4l2_requestbuffers bufrequest;

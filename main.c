@@ -25,13 +25,13 @@ void setBrightness(config*, int target);
 
 void inc(config* cfg, int amount) {
     int brightness = getBrightness(cfg) + amount;
-    brightness = brightness > cfg->MaxBrightness ? cfg->MaxBrightness : brightness;
+    brightness = brightness >cfg->MaxBrightness?cfg->MaxBrightness : brightness;
     setBrightness(cfg, brightness);
 }
 
 void dec(config* cfg, int amount) {
     int brightness = getBrightness(cfg) - amount;
-    brightness = brightness < cfg->MinBrightness ? cfg->MinBrightness : brightness;
+    brightness = brightness <cfg->MinBrightness?cfg->MinBrightness : brightness;
     setBrightness(cfg, brightness);
 }
 
@@ -41,6 +41,11 @@ void writeBrightness(config* cfg, int target) {
     char buffer[256];
     sprintf(buffer, "%i", target);
     FILE* file = fopen(cfg->BacklightDevice, "w");
+    if (file == NULL) {
+        fprintf(stderr, "[main] could not write to '%s'\n.",
+                cfg->BacklightDevice);
+        exit(1);
+    }
     fwrite(buffer, 4, 1, file);
     fclose(file);
 }
@@ -51,6 +56,11 @@ void writeBrightnessUnbound(config* cfg, int target) {
     char buffer[256];
     sprintf(buffer, "%i", target);
     FILE* file = fopen(cfg->BacklightDevice, "w");
+    if (file == NULL) {
+        fprintf(stderr, "[main] could not write to '%s'\n.",
+                cfg->BacklightDevice);
+        exit(1);
+    }
     fwrite(buffer, 4, 1, file);
     fclose(file);
 }
@@ -83,6 +93,11 @@ void setBrightnessUnbound(config* cfg, int target) {
 
 void setBrightnessKeyboard(config* cfg, char* val) {
     FILE* file = fopen(cfg->KeyboardDevice, "w");
+    if (file == NULL) {
+        fprintf(stderr, "[main] could not write to '%s'\n.",
+                cfg->KeyboardDevice);
+        exit(1);
+    }
     fprintf(file, val);
     fclose(file);
 }
@@ -105,6 +120,11 @@ void pulse(config* cfg, int amount) {
 
 int getBrightness(config* cfg) {
     FILE* file = fopen(cfg->BacklightDevice, "r");
+    if (file == NULL) {
+        fprintf(stderr, "[main] could not read '%s'\n.",
+                cfg->BacklightDevice);
+        exit(1);
+    }
     char buf[16];
     fread(buf, 8, 1, file);
     fclose(file);
@@ -113,9 +133,9 @@ int getBrightness(config* cfg) {
 
 void autoBrightness(config* cfg, int amount) {
     int target = getLightLevel(cfg)*amount;
-    target -= LOW_AVERAGE;
+    target -= cfg->WebcamLightValueLow;
     target *= cfg->MaxBrightness;
-    target /= HIGH_AVERAGE;
+    target /= cfg->WebcamLightValueHigh;
     setBrightness(cfg, target);
     if (cfg->UseKeyboard) {
         if (target < 0.25*cfg->MaxBrightness) {
@@ -154,8 +174,8 @@ void toggleBrightness(config* cfg) {
 
 int main(int argc, char **argv) {
     config cfg;
-    DefaultConfig(&cfg);
     ReadConfig(&cfg, "/etc/BacklightTooler.conf");
+    DefaultConfig(&cfg);
 
     if (argc < 2) {
         help();

@@ -12,9 +12,6 @@
 #include <linux/videodev2.h>
 #include <sys/mman.h>
 
-#define LOW_AVERAGE 700
-#define HIGH_AVERAGE 2000
-
 int getLightLevel(config*);
 
 #endif // WEBCAM_H
