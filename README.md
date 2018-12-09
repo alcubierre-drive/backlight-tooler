@@ -1,12 +1,12 @@
-#BacklightTooler
+# BacklightTooler
 
-##SYNOPSIS
+## SYNOPSIS
 
     BacklightTooler inc|dec|auto amount pulse|toggle
     
     BacklightToolerServiceToggle
 
-##USAGE
+## USAGE
 
 For the tool to work, the systemd-service
 `BacklightToolerChangePermissions` has to be enabled and started. The
@@ -16,7 +16,7 @@ value, consider copying
 `/usr/lib/systemd/user/BacklightTooler.service` to
 `~/.config/systemd/user/` and edit the file from there.
 
-##EXAMPLE .xbindkeysrc
+## EXAMPLE .xbindkeysrc
 
     "BacklightTooler inc"
     XF86MonBrightnessUp
@@ -34,6 +34,6 @@ value, consider copying
     "BacklightToolerServiceToggle"
     XF86Tools
 
-##BUGS
+## BUGS
 
 Wrong paths in the config file will lead to segfaults.
