@@ -4,8 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/chmod a+rw /sys/class/backlight/intel_backlight/brightness
-ExecStart=/usr/bin/chmod a+rw /sys/devices/platform/thinkpad_acpi/leds/tpacpi::kbd_backlight/brightness
+ExecStart=sh -c '/usr/bin/chmod a+rw $(grep Device=/sys /etc/BacklightTooler.conf | sed "s/.*=//g")'
 
 [Install]
 WantedBy=multi-user.target
