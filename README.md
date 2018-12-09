@@ -1,5 +1,4 @@
-BacklightTooler
-===============
+#BacklightTooler
 
 ##SYNOPSIS
 
@@ -28,7 +27,7 @@ value, consider copying
     "systemctl --user start BacklightTooler.service"
     XF86Launch1
     
-    "systemctl \--user stop BacklightTooler.timer; BacklightTooler
+    "systemctl --user stop BacklightTooler.timer; BacklightTooler
     toggle"
     XF86Launch2
     
