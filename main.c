@@ -174,7 +174,7 @@ void toggleBrightness(config* cfg) {
 
 int main(int argc, char **argv) {
     config cfg = InitConfig();
-    ReadConfig(&cfg, "/etc/BacklightTooler.conf");
+    ReadConfig(&cfg, "/etc/backlight-tooler.conf");
     DefaultConfig(&cfg);
 
     if (argc < 2) {
@@ -186,6 +186,7 @@ int main(int argc, char **argv) {
     if (argc > 2) amount = atoi(argv[2]);
     if (amount < 0 || amount > cfg.MaxBrightness) {
         puts("Invalid amount.\n");
+        // TODO change behaviour to only print invalid if not webcam.
         return 0;
     }
 

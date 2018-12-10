@@ -1,0 +1,22 @@
+.TH backlight-tooler 1
+.SH NAME
+backlight-tooler \- collection of scripts to modify backlight
+.SH SYNOPSIS
+.B backlight-tooler
+[\fBinc|dec|auto\fR \fIamount\fR]
+[\fBpulse|toggle\fR]
+
+.B backlight-tooler-service-toggle
+
+.SH USAGE
+For the tool to work, the systemd-service \fBbacklight-tooler-change-permissions\fR
+has to be enabled and started. The systemd-user timer
+\fBbacklight-tooler.timer\fR can be enabled to get automatic handling every 15
+minutes. For changes of the default \fBauto\fR value, consider copying
+\fB/usr/lib/systemd/user/backlight-tooler.service\fR to
+\fB~/.config/systemd/user/\fR and edit the file from there.
+
+.SH CONFIG
+
+The configuration file \fI/etc/backlight-tooler.conf\fR has several options that
+are explained in the file that's shipped with the package itself.

@@ -4,7 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=sh -c '/usr/bin/chmod a+rw $(grep Device=/sys /etc/BacklightTooler.conf | sed "s/.*=//g")'
+ExecStart=/usr/bin/backlight-tooler-change-permissions
 
 [Install]
 WantedBy=multi-user.target

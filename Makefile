@@ -1,9 +1,10 @@
 PREFIX?=/
+BINARY=backlight-tooler
 
 all:
 	$(CC) -c webcam.c
 	$(CC) -c readconfig.c
-	$(CC) main.c webcam.o readconfig.o -o BacklightTooler
+	$(CC) main.c webcam.o readconfig.o -o $(BINARY)
 install:
 	mkdir -p $(PREFIX)/usr/bin/
 	mkdir -p $(PREFIX)/usr/lib/systemd/user/
