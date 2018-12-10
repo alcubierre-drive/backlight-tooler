@@ -1,0 +1,56 @@
+#!/bin/bash
+
+configuration_file="/etc/backlight-tooler.conf"
+
+backlight_device="$(grep BacklightDevice "$configuration_file")"
+keyboard_device="$(grep KeyboardDevice "$configuration_file")"
+use_keyboard="$(grep UseKeyboard "$configuration_file")"
+
+function is_comment () {
+    # takes a line of the config and determines whether it should be treated as
+    # a comment.
+    if [ -z "$@" ]; then
+        return 0
+    else
+        start="$(echo "$@" | cut -c -2)"
+        if [ ${start:0:1} = '#' ]; then
+            return 0
+        elif [ ${start:0:2} = '//' ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+function set_permissions () {
+    # takes a line and sets the permissions if it's not a comment
+    if is_comment "$@"; then
+        :
+    else
+        chmod a+rw "$(echo "$@" | sed "s/.*=//g")"
+    fi
+}
+
+
+default_backlight_device="/sys/class/backlight/intel_backlight/brightness"
+default_keyboard_device="/sys/devices/platform/thinkpad_acpi/leds/tpacpi::kbd_backlight/brightness"
+
+if is_comment "$backlight_device"; then
+    set_permissions "$default_backlight_device"
+else
+    set_permissions "$backlight_device"
+fi
+
+if is_comment "$use_keyboard"; then
+    :
+else
+    if eval "$(echo "$use_keyboard" | sed "s/.*=//g")"; then
+        if is_comment "$keyboard_device"; then
+            set_permissions "$default_keyboard_device"
+        else
+            set_permissions "$keyboard_device"
+        fi
+    fi
+fi
+

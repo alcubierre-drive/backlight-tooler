@@ -2,17 +2,17 @@
 
 # Small script for toggling the timer, use for keybindings
 
-title="Autmatic Backlight Control"
+title="Automatic Backlight Control"
 runstring="started - every 15 min"
 stopstring="stopped"
 
-systemctl --user is-active BacklightTooler.timer
+systemctl --user is-active backlight-tooler.timer
 
 if [ $? -eq 0 ]; then
-    systemctl --user stop BacklightTooler.timer
+    systemctl --user stop backlight-tooler.timer
     notify-send "$title" "$stopstring"
 else
-    systemctl --user start BacklightTooler.service
-    systemctl --user start BacklightTooler.timer
+    systemctl --user start backlight-tooler.service
+    systemctl --user start backlight-tooler.timer
     notify-send "$title" "$runstring"
 fi
