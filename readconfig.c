@@ -12,6 +12,9 @@
 #define HEIGHT 9
 #define W_LOW 10
 #define W_HIGH 11
+#define AUTO_VALUE 12
+#define PULSE_VALUE 13
+#define MAX_PULSE 14
 #define BADKEY -1
 
 typedef struct { char *key; int val; } t_symstruct;
@@ -24,10 +27,13 @@ static t_symstruct lookuptable[] = {
     { "MinBrightness", MIN_B },
     { "DefaultSpeed", DEF_S },
     { "DefaultAmount", DEF_A },
+    { "AutoAmount", AUTO_VALUE },
     { "WebcamWidth", WIDTH },
     { "WebcamHeight", HEIGHT },
     { "WebcamLightValueLow", W_LOW },
-    { "WebcamLightValueHigh", W_HIGH }
+    { "WebcamLightValueHigh", W_HIGH },
+    { "PulseAmount", PULSE_VALUE },
+    { "PulseMax", MAX_PULSE }
 };
 
 #define NKEYS sizeof(lookuptable)/sizeof(t_symstruct)
@@ -116,6 +122,18 @@ void ModifyConfig( config* cfg, char* line ) {
             cfg->WebcamLightValueHigh = atoi(val);
             cfg->has_WebcamLightValueHigh = true;
             break;
+        case AUTO_VALUE:
+            cfg->AutoAmount = atoi(val);
+            cfg->has_AutoAmount = true;
+            break;
+        case PULSE_VALUE:
+            cfg->PulseAmount = atoi(val);
+            cfg->has_PulseAmount = true;
+            break;
+        case MAX_PULSE:
+            cfg->PulseMax = atoi(val);
+            cfg->has_PulseMax = true;
+            break;
         case BADKEY:
             fprintf(stderr, "[config] unknown key '%s'.\n", key);
             break;
@@ -194,18 +212,34 @@ void DefaultConfig( config* cfg ) {
     if (!cfg->has_WebcamLightValueHigh) {
         cfg->WebcamLightValueHigh = 2000;
     }
+    if (!cfg->has_AutoAmount) {
+        cfg->AutoAmount = 12;
+    }
+    if (!cfg->has_PulseMax) {
+        cfg->PulseMax = 1000;
+    }
+    if (!cfg->has_PulseAmount) {
+        cfg->PulseAmount = 30;
+    }
 }
 
 void dbg_print_config( config* cfg ) {
-    printf("%s\n%s\n%s\n%i\n%i\n%i\n%i\n",
-            cfg->WebcamDevice,
-            cfg->BacklightDevice,
-            cfg->KeyboardDevice,
-            cfg->UseKeyboard,
-            cfg->MaxBrightness,
-            cfg->MinBrightness,
-            cfg->DefaultAmount,
-            cfg->DefaultSpeed);
+    printf("%s\n%s\n%s\n %i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n",
+    cfg->WebcamDevice,
+    cfg->BacklightDevice,
+    cfg->KeyboardDevice,
+    cfg->UseKeyboard,
+    cfg->MaxBrightness,
+    cfg->MinBrightness,
+    cfg->DefaultSpeed,
+    cfg->DefaultAmount,
+    cfg->WebcamWidth,
+    cfg->WebcamHeight,
+    cfg->WebcamLightValueLow,
+    cfg->WebcamLightValueHigh,
+    cfg->AutoAmount,
+    cfg->PulseAmount,
+    cfg->PulseMax);
 }
 
 config InitConfig() {
@@ -222,5 +256,8 @@ config InitConfig() {
     c.has_WebcamHeight = false;
     c.has_WebcamLightValueLow = false;
     c.has_WebcamLightValueHigh = false;
+    c.has_AutoAmount = false;
+    c.has_PulseAmount = false;
+    c.has_PulseMax = false;
     return c;
 }

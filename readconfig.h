@@ -33,6 +33,12 @@ struct config {
     bool has_WebcamLightValueLow;
     int WebcamLightValueHigh;
     bool has_WebcamLightValueHigh;
+    int AutoAmount;
+    bool has_AutoAmount;
+    int PulseAmount;
+    bool has_PulseAmount;
+    int PulseMax;
+    bool has_PulseMax;
 };
 typedef struct config config;
 

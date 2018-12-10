@@ -152,9 +152,15 @@ void autoBrightness(config* cfg, int amount) {
     }
 }
 
-void help() {
-    puts("Usage: BacklightTool OPTION [AMOUNT]\n"\
-         "Options: set, inc, dec, pulse, auto, toggle");
+void help( char** argv ) {
+    printf("Usage: %s <option> [amount]\n"\
+           "           options:  set <amount>\n"\
+           "                     inc [amount]\n"\
+           "                     dec [amount]\n"\
+           "                     pulse [amount]\n"\
+           "                     auto [amount]\n"\
+           "                     toggle\n",
+         argv[0]);
 }
 
 void toggleBrightness(config* cfg) {
@@ -172,29 +178,58 @@ void toggleBrightness(config* cfg) {
     }
 }
 
+int chka(config* cfg, int amount) {
+    if (amount < 0 || amount > cfg->MaxBrightness) {
+        fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
+                amount, cfg->MaxBrightness);
+        fprintf(stderr, "[main] Using default '%i'.\n", cfg->DefaultAmount);
+        return cfg->DefaultAmount;
+    } else {
+        return amount;
+    }
+}
+
+int chkp(config* cfg, int amount) {
+    if (amount < 0 || amount > cfg->PulseMax) {
+        fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
+                amount, cfg->PulseMax);
+        fprintf(stderr, "[main] Using default '%i'.\n", cfg->PulseAmount);
+        return cfg->PulseAmount;
+    } else {
+        return amount;
+    }
+}
+
 int main(int argc, char **argv) {
     config cfg = InitConfig();
     ReadConfig(&cfg, "/etc/backlight-tooler.conf");
     DefaultConfig(&cfg);
 
     if (argc < 2) {
-        help();
+        help( argv );
         return 0;
     }
 
-    int amount = cfg.DefaultAmount;
-    if (argc > 2) amount = atoi(argv[2]);
-    if (amount < 0 || amount > cfg.MaxBrightness) {
-        puts("Invalid amount.\n");
-        // TODO change behaviour to only print invalid if not webcam.
-        return 0;
+    int set_amount = cfg.DefaultAmount;
+    int auto_amount = cfg.AutoAmount;
+    int pulse_amount = cfg.PulseAmount;
+    if (argc > 2) {
+        set_amount = atoi(argv[2]);
+        auto_amount = atoi(argv[2]);
+        pulse_amount = atoi(argv[2]);
     }
 
-    if (!strcmp(argv[1], "inc")) inc(&cfg, amount);
-    else if (!strcmp(argv[1], "dec")) dec(&cfg, amount);
-    else if (!strcmp(argv[1], "pulse")) pulse(&cfg, amount);
-    else if (!strcmp(argv[1], "auto")) autoBrightness(&cfg, amount);
-    else if (!strcmp(argv[1], "set") && argc > 2) setBrightness(&cfg, amount);
-    else if (!strcmp(argv[1], "toggle")) toggleBrightness(&cfg);
-    else help();
+    if (!strcmp(argv[1], "inc")) {
+        inc(&cfg, chka(&cfg, set_amount));
+    } else if (!strcmp(argv[1], "dec")) {
+        dec(&cfg, chka(&cfg, set_amount));
+    } else if (!strcmp(argv[1], "pulse")) {
+        pulse(&cfg, chkp(&cfg, pulse_amount));
+    } else if (!strcmp(argv[1], "auto")) {
+        autoBrightness(&cfg, auto_amount);
+    } else if (!strcmp(argv[1], "set") && argc > 2) {
+            setBrightness(&cfg, chka(&cfg, set_amount));
+    } else if (!strcmp(argv[1], "toggle")) {
+        toggleBrightness(&cfg);
+    } else help( argv );
 }

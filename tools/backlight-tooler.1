@@ -2,21 +2,77 @@
 .SH NAME
 backlight-tooler \- collection of scripts to modify backlight
 .SH SYNOPSIS
-.B backlight-tooler
-[\fBinc|dec|auto\fR \fIamount\fR]
-[\fBpulse|toggle\fR]
+.B backlight-tooler [\fBinc|dec|auto|pulse\fR] [\fIamount\fR]
+.br
+.B backlight-tooler [\fBtoggle\fR]
 
 .B backlight-tooler-service-toggle
 
+.B backlight-tooler-change-permissions
+
 .SH USAGE
-For the tool to work, the systemd-service \fBbacklight-tooler-change-permissions\fR
+For the tool to work, the systemd-service
+\fBbacklight-tooler-change-permissions.service\fR
 has to be enabled and started. The systemd-user timer
 \fBbacklight-tooler.timer\fR can be enabled to get automatic handling every 15
-minutes. For changes of the default \fBauto\fR value, consider copying
-\fB/usr/lib/systemd/user/backlight-tooler.service\fR to
-\fB~/.config/systemd/user/\fR and edit the file from there.
+minutes.
 
 .SH CONFIG
 
-The configuration file \fI/etc/backlight-tooler.conf\fR has several options that
-are explained in the file that's shipped with the package itself.
+.B /etc/backlight-tooler.conf
+.br
+Lines starting with \fB//\fR or \fB#\fR are ignored. Every option has to be in
+the format \fIkey=value\fR without any whitespace or quotation marks. Possible
+Options are
+
+.B BacklightDevice \fIpath\fR
+.br
+Path to the sysfs brightness file, i.e. something like
+\fI/sys/class/backlight/intel_backlight/brightness\fR.
+.br
+.B KeyboardDevice \fIpath\fR
+.br
+Path to the sysfs keyboard brightness file (if applicable)
+.br
+.B UseKeyboard \fBtrue|false\fR
+.br
+.B MaxBrightness \fIinteger\fR
+.br
+.B MinBrightness \fIinteger\fR
+.br
+.B DefaultAmount \fIinteger\fR
+.br
+The amount that gets added to / substracted from the current brightness by
+default.
+.br
+.B AutoAmount \fIinteger\fR
+.br
+A weight factor that determines the impact of the webcam light level
+.br
+.B DefaultSpeed \fIinteger\fR
+.br
+The speed the backlight is changed with (smooth transitions)
+.br
+.B PulseAmount \fIinteger\fR
+.br
+The default speed used for pulsing
+.br
+.B PulseMax \fIinteger\fR
+.br
+The maximum speed for pulsing
+.br
+.B WebcamDevice \fIpath\fR
+.br
+Path to the webcam device to use, i.e. something like \fI/dev/video0\fR
+.br
+.B WebcamWidth \fIinteger\fR
+.br
+.B WebcamHeight \fIinteger\fR
+.br
+Image dimensions
+.br
+.B WebcamLightValueLow \fIinteger\fR
+.br
+.B WebcamLightValueHigh \fIinteger\fR
+.br
+Light level average values for the lowest and highest expected value.
