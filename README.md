@@ -1,40 +1,40 @@
-# BacklightTooler
+# backlight-tooler
 
 ## Synopsis
 
-    BacklightTooler inc|dec|auto amount pulse|toggle
+    backlight-tooler inc|dec|auto amount pulse|toggle
     
-    BacklightToolerServiceToggle
+    backlight-tooler-service-toggle
 
 ## Usage
 
 For the tool to work, the systemd-service
-`BacklightToolerChangePermissions` has to be enabled and started. The
-systemd-user timer `BacklightTooler.timer` can be enabled to get
+`backlight-tooler-change-permissions` has to be enabled and started. The
+systemd-user timer `backlight-tooler.timer` can be enabled to get
 automatic handling every 15 minutes. For changes of the default `auto`
 value, consider copying
-`/usr/lib/systemd/user/BacklightTooler.service` to
+`/usr/lib/systemd/user/backlight-tooler.service` to
 `~/.config/systemd/user/` and edit the file from there.
 
 ## Example .xbindkeysrc
 
-    "BacklightTooler inc"
+    "backlight-tooler inc"
     XF86MonBrightnessUp
     
-    "BacklightTooler dec"
+    "backlight-tooler dec"
     XF86MonBrightnessDown
     
-    "systemctl --user start BacklightTooler.service"
+    "systemctl --user start backlight-tooler.service"
     XF86Launch1
     
-    "systemctl --user stop BacklightTooler.timer; BacklightTooler
+    "systemctl --user stop backlight-tooler.timer; backlight-tooler
     toggle"
     XF86Launch2
     
-    "BacklightToolerServiceToggle"
+    "backlight-tooler-service-toggle"
     XF86Tools
 
 ## Configuration
 
-All config is done in `/etc/BacklightTooler.conf`. The default values might work
+All config is done in `/etc/backlight-tooler.conf`. The default values might work
 on an intel-igpu system.

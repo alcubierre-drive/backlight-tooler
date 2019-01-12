@@ -1,0 +1,4 @@
+# rule for screen backlight devices
+SUBSYSTEM=="backlight",RUN+="/bin/chmod 666 /sys/%p/brightness"
+# rule for keyboard backlight devices
+SUBSYSTEM=="leds",RUN+="/bin/chmod 666 /sys/%p/brightness"
