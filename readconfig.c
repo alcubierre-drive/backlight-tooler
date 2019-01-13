@@ -15,6 +15,10 @@
 #define AUTO_VALUE 12
 #define PULSE_VALUE 13
 #define MAX_PULSE 14
+#define USE_FUNCTION 15
+#define FUNC_PARAM 16
+#define KBD_VAL 17
+#define KBD_MAX 18
 #define BADKEY -1
 
 typedef struct { char *key; int val; } t_symstruct;
@@ -33,7 +37,11 @@ static t_symstruct lookuptable[] = {
     { "WebcamLightValueLow", W_LOW },
     { "WebcamLightValueHigh", W_HIGH },
     { "PulseAmount", PULSE_VALUE },
-    { "PulseMax", MAX_PULSE }
+    { "PulseMax", MAX_PULSE },
+    { "Function", USE_FUNCTION },
+    { "FuncParam", FUNC_PARAM },
+    { "KeyboardValue", KBD_VAL },
+    { "KeyboardMaxBrightness", KBD_MAX }
 };
 
 #define NKEYS sizeof(lookuptable)/sizeof(t_symstruct)
@@ -58,6 +66,10 @@ char* RemoveString(char* str, const char* sub) {
 }
 
 void ModifyConfig( config* cfg, char* line ) {
+    if (line[strspn(line, " \t\v\r\n")] == '\0') {
+        // ignore empty lines
+        return;
+    }
     if (line[0] == '#' || (line[0] == '/' && line[1] == '/')) {
         // ignore comments
         return;
@@ -134,6 +146,22 @@ void ModifyConfig( config* cfg, char* line ) {
             cfg->PulseMax = atoi(val);
             cfg->has_PulseMax = true;
             break;
+        case USE_FUNCTION:
+            strcpy(cfg->UseFunction,val);
+            cfg->has_UseFunction = true;
+            break;
+        case FUNC_PARAM:
+            cfg->FunctionParam = atof(val);
+            cfg->has_FunctionParam = true;
+            break;
+        case KBD_VAL:
+            cfg->KeyboardValue = atof(val);
+            cfg->has_KeyboardValue = true;
+            break;
+        case KBD_MAX:
+            cfg->KeyboardMaxBrightness = atoi(val);
+            cfg->has_KeyboardMaxBrightness = true;
+            break;
         case BADKEY:
             fprintf(stderr, "[config] unknown key '%s'.\n", key);
             break;
@@ -155,21 +183,35 @@ void ReadConfig( config* cfg, char* path ) {
     fclose(fp);
 }
 
-void ReadMaxBrightness( config* cfg ) {
+void ReadMaxBrightness( config* cfg, bool kbd ) {
     char maxbrightnessfile[512];
-    strcpy(maxbrightnessfile,cfg->BacklightDevice);
-    sprintf(maxbrightnessfile, "%smax_brightness",
-            RemoveString(maxbrightnessfile,"brightness"));
+    if (kbd) {
+        strcpy(maxbrightnessfile,cfg->KeyboardDevice);
+        sprintf(maxbrightnessfile, "%smax_brightness",
+                RemoveString(maxbrightnessfile,"brightness"));
+    } else {
+        strcpy(maxbrightnessfile,cfg->BacklightDevice);
+        sprintf(maxbrightnessfile, "%smax_brightness",
+                RemoveString(maxbrightnessfile,"brightness"));
+    }
     FILE* mbf = fopen(maxbrightnessfile, "r");
     if (mbf == NULL) {
-        cfg->MaxBrightness = 1060;
+        if (kbd) {
+            cfg->KeyboardMaxBrightness = 2;
+        } else {
+            cfg->MaxBrightness = 1060;
+        }
         fprintf(stderr,"[config] Impossible to read '%s'.\n",maxbrightnessfile);
         return;
     }
     char maxbrval[16];
     fread(maxbrval, 8, 1, mbf);
     fclose(mbf);
-    cfg->MaxBrightness = atoi(maxbrval);
+    if (kbd) {
+        cfg->KeyboardMaxBrightness = atoi(maxbrval);
+    } else {
+        cfg->MaxBrightness = atoi(maxbrval);
+    }
 }
 
 void DefaultConfig( config* cfg ) {
@@ -189,7 +231,7 @@ void DefaultConfig( config* cfg ) {
         cfg->UseKeyboard = false;
     }
     if (!cfg->has_MaxBrightness) {
-        ReadMaxBrightness( cfg );
+        ReadMaxBrightness( cfg, false );
     }
     if (!cfg->has_MinBrightness) {
         cfg->MinBrightness = 0.02*cfg->MaxBrightness;
@@ -207,13 +249,13 @@ void DefaultConfig( config* cfg ) {
         cfg->WebcamHeight = 720;
     }
     if (!cfg->has_WebcamLightValueLow) {
-        cfg->WebcamLightValueLow = 700;
+        cfg->WebcamLightValueLow = 77;
     }
     if (!cfg->has_WebcamLightValueHigh) {
-        cfg->WebcamLightValueHigh = 2000;
+        cfg->WebcamLightValueHigh = 200;
     }
     if (!cfg->has_AutoAmount) {
-        cfg->AutoAmount = 12;
+        cfg->AutoAmount = 1;
     }
     if (!cfg->has_PulseMax) {
         cfg->PulseMax = 1000;
@@ -221,25 +263,42 @@ void DefaultConfig( config* cfg ) {
     if (!cfg->has_PulseAmount) {
         cfg->PulseAmount = 30;
     }
+    if (!cfg->has_UseFunction) {
+        strcpy(cfg->UseFunction,"linear");
+    }
+    if (!cfg->has_FunctionParam) {
+        cfg->FunctionParam = 1.0;
+    }
+    if (!cfg->has_KeyboardValue) {
+        cfg->KeyboardValue = 0.25;
+    }
+    if (!cfg->has_KeyboardMaxBrightness) {
+        ReadMaxBrightness( cfg, true );
+    }
 }
 
 void dbg_print_config( config* cfg ) {
-    printf("%s\n%s\n%s\n %i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n",
-    cfg->WebcamDevice,
-    cfg->BacklightDevice,
-    cfg->KeyboardDevice,
-    cfg->UseKeyboard,
-    cfg->MaxBrightness,
-    cfg->MinBrightness,
-    cfg->DefaultSpeed,
-    cfg->DefaultAmount,
-    cfg->WebcamWidth,
-    cfg->WebcamHeight,
-    cfg->WebcamLightValueLow,
-    cfg->WebcamLightValueHigh,
-    cfg->AutoAmount,
-    cfg->PulseAmount,
-    cfg->PulseMax);
+    fprintf(stderr,
+        "%s\n%s\n%s\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%i\n%s\n%.2f\n%.2f\n%i\n",
+        cfg->WebcamDevice,
+        cfg->BacklightDevice,
+        cfg->KeyboardDevice,
+        cfg->UseKeyboard,
+        cfg->MaxBrightness,
+        cfg->MinBrightness,
+        cfg->DefaultSpeed,
+        cfg->DefaultAmount,
+        cfg->WebcamWidth,
+        cfg->WebcamHeight,
+        cfg->WebcamLightValueLow,
+        cfg->WebcamLightValueHigh,
+        cfg->AutoAmount,
+        cfg->PulseAmount,
+        cfg->PulseMax,
+        cfg->UseFunction,
+        cfg->FunctionParam,
+        cfg->KeyboardValue,
+        cfg->KeyboardMaxBrightness);
 }
 
 config InitConfig() {
@@ -259,5 +318,9 @@ config InitConfig() {
     c.has_AutoAmount = false;
     c.has_PulseAmount = false;
     c.has_PulseMax = false;
+    c.has_UseFunction = false;
+    c.has_FunctionParam = false;
+    c.has_KeyboardValue = false;
+    c.has_KeyboardMaxBrightness = false;
     return c;
 }

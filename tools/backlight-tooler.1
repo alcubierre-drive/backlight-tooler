@@ -2,7 +2,7 @@
 .SH NAME
 backlight-tooler \- collection of scripts to modify backlight
 .SH SYNOPSIS
-.B backlight-tooler [\fBinc|dec|auto|pulse\fR] [\fIamount\fR]
+.B backlight-tooler [\fBinc|dec|auto|pulse|info\fR] [\fIamount\fR]
 .br
 .B backlight-tooler [\fBtoggle\fR]
 
@@ -31,6 +31,12 @@ Path to the sysfs keyboard brightness file (if applicable)
 .br
 .B UseKeyboard \fBtrue|false\fR
 .br
+.B KeyboardValue \fIfloat\fR
+.br
+Fraction from which on the keyboard backlight will be set. Defaults to 0.25.
+.br
+.B KeyboardMaxBrightness \fIinteger\fR
+.br
 .B MaxBrightness \fIinteger\fR
 .br
 .B MinBrightness \fIinteger\fR
@@ -43,18 +49,6 @@ default.
 .B AutoAmount \fIinteger\fR
 .br
 A weight factor that determines the impact of the webcam light level
-.br
-.B DefaultSpeed \fIinteger\fR
-.br
-The speed the backlight is changed with (smooth transitions)
-.br
-.B PulseAmount \fIinteger\fR
-.br
-The default speed used for pulsing
-.br
-.B PulseMax \fIinteger\fR
-.br
-The maximum speed for pulsing
 .br
 .B WebcamDevice \fIpath\fR
 .br
@@ -70,4 +64,28 @@ Image dimensions
 .br
 .B WebcamLightValueHigh \fIinteger\fR
 .br
-Light level average values for the lowest and highest expected value.
+Light level average values for the lowest and highest expected value. Current
+light level value can be obtained by executing \fBbacklight-tooler info\fR.
+.br
+.B DefaultSpeed \fIinteger\fR
+.br
+The speed the backlight is changed with (smooth transitions)
+.br
+.B PulseAmount \fIinteger\fR
+.br
+The default speed used for pulsing
+.br
+.B PulseMax \fIinteger\fR
+.br
+The maximum speed for pulsing
+.br
+.B Function \fIstring\fR
+.br
+The name of the function used to scale the brightness level. Possible functions
+are \fBlinear, quadratic, power, exponential, logarithmic, factorial\fR
+.br
+.B FuncParam \fIfloat\fR
+.br
+The parameter that the function accepts (will not impact \fBlinear,
+factorial\fR or \fBquadratic\fR). For \fBpower\fR, only positive values should
+be used.

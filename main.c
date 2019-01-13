@@ -16,9 +16,12 @@
 
 #include "readconfig.h"
 #include "webcam.h"
+#include "functions.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#define CONFIG_FILE "/etc/backlight-tooler.conf"
 
 int getBrightness(config* );
 void setBrightness(config*, int target);
@@ -132,21 +135,29 @@ int getBrightness(config* cfg) {
 }
 
 void autoBrightness(config* cfg, int amount) {
-    int target = getLightLevel(cfg)*amount;
-    target -= cfg->WebcamLightValueLow;
-    target *= cfg->MaxBrightness;
-    target /= cfg->WebcamLightValueHigh;
+    int temp_amount = getLightLevel(cfg)*amount;
+    int target = choose_function_and_params(cfg, temp_amount);
+
+    if (target < 0) {
+        target = 0;
+    } else if (target > cfg->MaxBrightness) {
+        target = cfg->MaxBrightness;
+    }
+
     setBrightness(cfg, target);
     if (cfg->UseKeyboard) {
-        if (target < 0.25*cfg->MaxBrightness) {
-            if (target < 0.125*cfg->MaxBrightness) {
-                setBrightnessKeyboard(cfg, "1");
+        if (target <= cfg->KeyboardValue*cfg->MaxBrightness) {
+            float tmp = target;
+            tmp -= cfg->KeyboardValue*cfg->MaxBrightness;
+            tmp /= (float)(cfg->KeyboardValue*cfg->MaxBrightness);
+            int kbdbr = (int)((1.0+tmp)*cfg->KeyboardMaxBrightness+1.0);
+            if (kbdbr > cfg->KeyboardMaxBrightness) {
+                kbdbr = cfg->KeyboardMaxBrightness;
             }
-            else {
-                setBrightnessKeyboard(cfg, "2");
-            }
-        }
-        else {
+            char buffer[256];
+            sprintf( buffer, "%i", kbdbr );
+            setBrightnessKeyboard(cfg, buffer);
+        } else {
             setBrightnessKeyboard(cfg, "0");
         }
     }
@@ -154,12 +165,13 @@ void autoBrightness(config* cfg, int amount) {
 
 void help( char** argv ) {
     printf("Usage: %s <option> [amount]\n"\
-           "           options:  set <amount>\n"\
+           "           options:  set [amount]\n"\
            "                     inc [amount]\n"\
            "                     dec [amount]\n"\
            "                     pulse [amount]\n"\
            "                     auto [amount]\n"\
-           "                     toggle\n",
+           "                     toggle\n"\
+           "                     info\n",
          argv[0]);
 }
 
@@ -202,7 +214,7 @@ int chkp(config* cfg, int amount) {
 
 int main(int argc, char **argv) {
     config cfg = InitConfig();
-    ReadConfig(&cfg, "/etc/backlight-tooler.conf");
+    ReadConfig(&cfg, CONFIG_FILE);
     DefaultConfig(&cfg);
 
     if (argc < 2) {
@@ -231,5 +243,8 @@ int main(int argc, char **argv) {
             setBrightness(&cfg, chka(&cfg, set_amount));
     } else if (!strcmp(argv[1], "toggle")) {
         toggleBrightness(&cfg);
+    } else if (!strcmp(argv[1], "info")) {
+        int level = getLightLevel(&cfg);
+        fprintf(stderr,"[info] Current webcam light level: %i\n",level);
     } else help( argv );
 }

@@ -39,6 +39,14 @@ struct config {
     bool has_PulseAmount;
     int PulseMax;
     bool has_PulseMax;
+    char UseFunction[512];
+    bool has_UseFunction;
+    float FunctionParam;
+    bool has_FunctionParam;
+    float KeyboardValue;
+    bool has_KeyboardValue;
+    float KeyboardMaxBrightness;
+    bool has_KeyboardMaxBrightness;
 };
 typedef struct config config;
 
