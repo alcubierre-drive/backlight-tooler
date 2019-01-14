@@ -273,7 +273,11 @@ void DefaultConfig( config* cfg ) {
         cfg->KeyboardValue = 0.25;
     }
     if (!cfg->has_KeyboardMaxBrightness) {
-        ReadMaxBrightness( cfg, true );
+        if (cfg->UseKeyboard) {
+            ReadMaxBrightness( cfg, true );
+        } else {
+            cfg->KeyboardMaxBrightness = 0;
+        }
     }
 }
 
