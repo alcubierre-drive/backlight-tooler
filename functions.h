@@ -10,6 +10,8 @@ float logarithmic( float* );
 float exponential( float* );
 float power( float* );
 float factorial( float* );
+float sine( float* );
+float minkowski( float* );
 
 int scaled_brightness( config*, int level, float (*scale)(float*),
         float* params, int nparams );

@@ -51,6 +51,37 @@ float sine( float* x ) {
     return sin( *x *M_PI*0.5 );
 }
 
+float minkowski( float* x ) {
+    float arg = *x;
+    long p = arg;
+    if ((float)p > arg) --p;
+    long q = 1, r = p + 1, s = 1, m, n;
+    float d = 1, y = p;
+    if (arg < (float)p || (p < 0) ^ (r <= 0))
+        return arg;
+    for (;;) {
+        d /= 2;
+        if (y + d == y)
+            break;
+        m = p + r;
+        if ((m < 0) ^ (p < 0))
+            break;
+        n = q + s;
+        if (n < 0)
+            break;
+
+        if (arg < (float)m / n) {
+            r = m;
+            s = n;
+        } else {
+            y += d;
+            p = m;
+            q = n;
+        }
+    }
+    return y + d;
+}
+
 int scaled_brightness( config* c, int level, float (*scale)(float*),
         float* params, int nparams ) {
 
@@ -89,6 +120,9 @@ int choose_function_and_params( config* cfg, int level ) {
         result = scaled_brightness( cfg, level, &factorial, NULL, 0 );
     } else if (!strcmp(name,"sine")) {
         result = scaled_brightness( cfg, level, &sine, NULL, 0 );
+    } else if (!strcmp(name,"?")) {
+        // Minkowski's question-mark function.
+        result = scaled_brightness( cfg, level, &minkowski, NULL, 0 );
     } else {
         param = 1.0;
         result = scaled_brightness( cfg, level, &power, &param, 1 );
