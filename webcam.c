@@ -1,13 +1,13 @@
 #include "webcam.h"
 int getLightLevel(config* cfg) {
-    int fd = open(cfg->WebcamDevice, O_RDWR);
+    int fd = open(cfg->WebcamDevice.val, O_RDWR);
     struct v4l2_capability cap;
     struct v4l2_format format;
     ioctl(fd, VIDIOC_QUERYCAP, &cap);
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    format.fmt.pix.width = cfg->WebcamWidth;
-    format.fmt.pix.height = cfg->WebcamHeight;
+    format.fmt.pix.width = cfg->WebcamWidth.val;
+    format.fmt.pix.height = cfg->WebcamHeight.val;
 
     ioctl(fd, VIDIOC_S_FMT, &format);
     struct v4l2_requestbuffers bufrequest;

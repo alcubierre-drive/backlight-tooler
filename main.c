@@ -28,25 +28,25 @@ void setBrightness(config*, int target);
 
 void inc(config* cfg, int amount) {
     int brightness = getBrightness(cfg) + amount;
-    brightness = brightness >cfg->MaxBrightness?cfg->MaxBrightness : brightness;
+    brightness = brightness >cfg->MaxBrightness.val?cfg->MaxBrightness.val : brightness;
     setBrightness(cfg, brightness);
 }
 
 void dec(config* cfg, int amount) {
     int brightness = getBrightness(cfg) - amount;
-    brightness = brightness <cfg->MinBrightness?cfg->MinBrightness : brightness;
+    brightness = brightness <cfg->MinBrightness.val?cfg->MinBrightness.val : brightness;
     setBrightness(cfg, brightness);
 }
 
 void writeBrightness(config* cfg, int target) {
-    if (target < cfg->MinBrightness) target = cfg->MinBrightness;
-    if (target > cfg->MaxBrightness) target = cfg->MaxBrightness;
+    if (target < cfg->MinBrightness.val) target = cfg->MinBrightness.val;
+    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
     char buffer[256];
     sprintf(buffer, "%i", target);
-    FILE* file = fopen(cfg->BacklightDevice, "w");
+    FILE* file = fopen(cfg->BacklightDevice.val, "w");
     if (file == NULL) {
         fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->BacklightDevice);
+                cfg->BacklightDevice.val);
         exit(1);
     }
     fwrite(buffer, 4, 1, file);
@@ -55,13 +55,13 @@ void writeBrightness(config* cfg, int target) {
 
 void writeBrightnessUnbound(config* cfg, int target) {
     if (target < 0) target = 0;
-    if (target > cfg->MaxBrightness) target = cfg->MaxBrightness;
+    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
     char buffer[256];
     sprintf(buffer, "%i", target);
-    FILE* file = fopen(cfg->BacklightDevice, "w");
+    FILE* file = fopen(cfg->BacklightDevice.val, "w");
     if (file == NULL) {
         fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->BacklightDevice);
+                cfg->BacklightDevice.val);
         exit(1);
     }
     fwrite(buffer, 4, 1, file);
@@ -69,36 +69,36 @@ void writeBrightnessUnbound(config* cfg, int target) {
 }
 
 void setBrightness(config* cfg, int target) {
-    if (target < cfg->MinBrightness) target = cfg->MinBrightness;
-    if (target > cfg->MaxBrightness) target = cfg->MaxBrightness;
+    if (target < cfg->MinBrightness.val) target = cfg->MinBrightness.val;
+    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
     int current = getBrightness(cfg);
     int inc = current > target ? -1 : 1;
     int steps = (target-current)*inc;
     while (steps --> 0) {
         current += inc;
         writeBrightness(cfg, current);
-        usleep(20000/cfg->DefaultSpeed);
+        usleep(20000/cfg->DefaultSpeed.val);
     }
 }
 
 void setBrightnessUnbound(config* cfg, int target) {
     if (target < 0) target = 0;
-    if (target > cfg->MaxBrightness) target = cfg->MaxBrightness;
+    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
     int current = getBrightness(cfg);
     int inc = current > target ? -1 : 1;
     int steps = (target-current)*inc;
     while (steps --> 0) {
         current += inc;
         writeBrightnessUnbound(cfg, current);
-        usleep(20000/cfg->DefaultSpeed);
+        usleep(20000/cfg->DefaultSpeed.val);
     }
 }
 
 void setBrightnessKeyboard(config* cfg, char* val) {
-    FILE* file = fopen(cfg->KeyboardDevice, "w");
+    FILE* file = fopen(cfg->KeyboardDevice.val, "w");
     if (file == NULL) {
         fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->KeyboardDevice);
+                cfg->KeyboardDevice.val);
         exit(1);
     }
     fprintf(file, val);
@@ -107,7 +107,7 @@ void setBrightnessKeyboard(config* cfg, char* val) {
 
 void pulse(config* cfg, int amount) {
     int low = 1;
-    int high = cfg->MaxBrightness;
+    int high = cfg->MaxBrightness.val;
     int t;
     while (1){
         for (t = low; t < high; ++t) {
@@ -122,10 +122,10 @@ void pulse(config* cfg, int amount) {
 }
 
 int getBrightness(config* cfg) {
-    FILE* file = fopen(cfg->BacklightDevice, "r");
+    FILE* file = fopen(cfg->BacklightDevice.val, "r");
     if (file == NULL) {
         fprintf(stderr, "[main] could not read '%s'\n.",
-                cfg->BacklightDevice);
+                cfg->BacklightDevice.val);
         exit(1);
     }
     char buf[16];
@@ -140,19 +140,19 @@ void autoBrightness(config* cfg, int amount) {
 
     if (target < 0) {
         target = 0;
-    } else if (target > cfg->MaxBrightness) {
-        target = cfg->MaxBrightness;
+    } else if (target > cfg->MaxBrightness.val) {
+        target = cfg->MaxBrightness.val;
     }
 
     setBrightness(cfg, target);
-    if (cfg->UseKeyboard) {
-        if (target <= cfg->KeyboardValue*cfg->MaxBrightness) {
+    if (cfg->UseKeyboard.val) {
+        if (target <= cfg->KeyboardValue.val*cfg->MaxBrightness.val) {
             float tmp = target;
-            tmp -= cfg->KeyboardValue*cfg->MaxBrightness;
-            tmp /= (float)(cfg->KeyboardValue*cfg->MaxBrightness);
-            int kbdbr = (int)((1.0+tmp)*cfg->KeyboardMaxBrightness+1.0);
-            if (kbdbr > cfg->KeyboardMaxBrightness) {
-                kbdbr = cfg->KeyboardMaxBrightness;
+            tmp -= cfg->KeyboardValue.val*cfg->MaxBrightness.val;
+            tmp /= (float)(cfg->KeyboardValue.val*cfg->MaxBrightness.val);
+            int kbdbr = (int)((1.0+tmp)*cfg->KeyboardMaxBrightness.val+1.0);
+            if (kbdbr > cfg->KeyboardMaxBrightness.val) {
+                kbdbr = cfg->KeyboardMaxBrightness.val;
             }
             char buffer[256];
             sprintf( buffer, "%i", kbdbr );
@@ -179,34 +179,34 @@ void toggleBrightness(config* cfg) {
     int curr = getBrightness(cfg);
     if (curr != 0) {
         setBrightnessUnbound(cfg, 0);
-        if (cfg->UseKeyboard) {
+        if (cfg->UseKeyboard.val) {
             setBrightnessKeyboard(cfg, "0");
         }
     } else {
-        setBrightnessUnbound(cfg, cfg->MaxBrightness);
-        if (cfg->UseKeyboard) {
+        setBrightnessUnbound(cfg, cfg->MaxBrightness.val);
+        if (cfg->UseKeyboard.val) {
             setBrightnessKeyboard(cfg, "0");
         }
     }
 }
 
 int chka(config* cfg, int amount) {
-    if (amount < 0 || amount > cfg->MaxBrightness) {
+    if (amount < 0 || amount > cfg->MaxBrightness.val) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
-                amount, cfg->MaxBrightness);
-        fprintf(stderr, "[main] Using default '%i'.\n", cfg->DefaultAmount);
-        return cfg->DefaultAmount;
+                amount, cfg->MaxBrightness.val);
+        fprintf(stderr, "[main] Using default '%i'.\n", cfg->DefaultAmount.val);
+        return cfg->DefaultAmount.val;
     } else {
         return amount;
     }
 }
 
 int chkp(config* cfg, int amount) {
-    if (amount < 0 || amount > cfg->PulseMax) {
+    if (amount < 0 || amount > cfg->PulseMax.val) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
-                amount, cfg->PulseMax);
-        fprintf(stderr, "[main] Using default '%i'.\n", cfg->PulseAmount);
-        return cfg->PulseAmount;
+                amount, cfg->PulseMax.val);
+        fprintf(stderr, "[main] Using default '%i'.\n", cfg->PulseAmount.val);
+        return cfg->PulseAmount.val;
     } else {
         return amount;
     }
@@ -222,9 +222,9 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    int set_amount = cfg.DefaultAmount;
-    int auto_amount = cfg.AutoAmount;
-    int pulse_amount = cfg.PulseAmount;
+    int set_amount = cfg.DefaultAmount.val;
+    int auto_amount = cfg.AutoAmount.val;
+    int pulse_amount = cfg.PulseAmount.val;
     if (argc > 2) {
         set_amount = atoi(argv[2]);
         auto_amount = atoi(argv[2]);
@@ -246,5 +246,6 @@ int main(int argc, char **argv) {
     } else if (!strcmp(argv[1], "info")) {
         int level = getLightLevel(&cfg);
         fprintf(stderr,"[info] Current webcam light level: %i\n",level);
-    } else help( argv );
+        dbg_print_config( &cfg );
+    } else { help( argv ); }
 }
