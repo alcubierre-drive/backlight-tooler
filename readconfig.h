@@ -119,6 +119,6 @@ void init_config(void**);
 void dbg_cnf(void**);
 void delete_config(void**);
 int get_keynum();
-void read_config(void** cfg, int which, char *c, int* i, bool* b, float* f);
+void read_config(void** cfg, int which, void* out);
 
 #endif // READCONFIG_H

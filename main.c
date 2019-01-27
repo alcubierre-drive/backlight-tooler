@@ -28,7 +28,7 @@ void setBrightness( void**, int target);
 
 void inc(void** cfg, int amount) {
     int maxbr;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
 
     int brightness = getBrightness(cfg) + amount;
     brightness = brightness > maxbr ? maxbr : brightness;
@@ -37,7 +37,7 @@ void inc(void** cfg, int amount) {
 
 void dec(void** cfg, int amount) {
     int minbr;
-    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
+    read_config(cfg,MIN_B,&minbr);
 
     int brightness = getBrightness(cfg) - amount;
     brightness = brightness < minbr ? minbr : brightness;
@@ -46,10 +46,10 @@ void dec(void** cfg, int amount) {
 
 void writeBrightness(void** cfg, int target) {
     int minbr, maxbr;
-    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MIN_B,&minbr);
+    read_config(cfg,MAX_B,&maxbr);
     char name[512];
-    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+    read_config(cfg,B_DEV,name);
 
     if (target < minbr) target = minbr;
     if (target > maxbr) target = minbr;
@@ -66,9 +66,9 @@ void writeBrightness(void** cfg, int target) {
 
 void writeBrightnessUnbound(void** cfg, int target) {
     int maxbr;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
     char name[512];
-    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+    read_config(cfg,B_DEV,name);
 
     if (target < 0) target = 0;
     if (target > maxbr) target = maxbr;
@@ -85,10 +85,10 @@ void writeBrightnessUnbound(void** cfg, int target) {
 
 void setBrightness(void** cfg, int target) {
     int minbr, maxbr;
-    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MIN_B,&minbr);
+    read_config(cfg,MAX_B,&maxbr);
     int defsp;
-    read_config(cfg,DEF_S,NULL,&defsp,NULL,NULL);
+    read_config(cfg,DEF_S,&defsp);
 
     if (target < minbr) target = minbr;
     if (target > maxbr) target = maxbr;
@@ -104,9 +104,9 @@ void setBrightness(void** cfg, int target) {
 
 void setBrightnessUnbound(void** cfg, int target) {
     int maxbr;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
     int defsp;
-    read_config(cfg,DEF_S,NULL,&defsp,NULL,NULL);
+    read_config(cfg,DEF_S,&defsp);
 
     if (target < 0) target = 0;
     if (target > maxbr) target = maxbr;
@@ -122,7 +122,7 @@ void setBrightnessUnbound(void** cfg, int target) {
 
 void setBrightnessKeyboard(void** cfg, char* val) {
     char name[512];
-    read_config(cfg,K_DEV,name,NULL,NULL,NULL);
+    read_config(cfg,K_DEV,name);
 
     FILE* file = fopen(name, "w");
     if (file == NULL) {
@@ -135,7 +135,7 @@ void setBrightnessKeyboard(void** cfg, char* val) {
 
 void pulse(void** cfg, int amount) {
     int high;
-    read_config(cfg,MAX_B,NULL,&high,NULL,NULL);
+    read_config(cfg,MAX_B,&high);
 
     int low = 1;
     int t;
@@ -153,7 +153,7 @@ void pulse(void** cfg, int amount) {
 
 int getBrightness(void** cfg) {
     char name[512];
-    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+    read_config(cfg,B_DEV,name);
 
     FILE* file = fopen(name, "r");
     if (file == NULL) {
@@ -168,13 +168,13 @@ int getBrightness(void** cfg) {
 
 void autoBrightness(void** cfg, int amount) {
     int maxbr;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
     bool usekbd;
-    read_config(cfg,U_KBD,NULL,NULL,&usekbd,NULL);
+    read_config(cfg,U_KBD,&usekbd);
     float kbdval;
-    read_config(cfg,KBD_VAL,NULL,NULL,NULL,&kbdval);
+    read_config(cfg,KBD_VAL,&kbdval);
     int kbdmaxbr;
-    read_config(cfg,KBD_MAX,NULL,&kbdmaxbr,NULL,NULL);
+    read_config(cfg,KBD_MAX,&kbdmaxbr);
 
 
     int temp_amount = getLightLevel(cfg)*amount;
@@ -219,9 +219,9 @@ void help( char** argv ) {
 
 void toggleBrightness(void** cfg) {
     bool usekbd;
-    read_config(cfg,U_KBD,NULL,NULL,&usekbd,NULL);
+    read_config(cfg,U_KBD,&usekbd);
     int maxbr;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
 
     int curr = getBrightness(cfg);
     if (curr != 0) {
@@ -239,8 +239,8 @@ void toggleBrightness(void** cfg) {
 
 int chka(void** cfg, int amount) {
     int maxbr, defam;
-    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
-    read_config(cfg,DEF_A,NULL,&defam,NULL,NULL);
+    read_config(cfg,MAX_B,&maxbr);
+    read_config(cfg,DEF_A,&defam);
 
     if (amount < 0 || amount > maxbr) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
@@ -254,8 +254,8 @@ int chka(void** cfg, int amount) {
 
 int chkp(void** cfg, int amount) {
     int pulsemax, pulseam;
-    read_config(cfg,MAX_PULSE,NULL,&pulsemax,NULL,NULL);
-    read_config(cfg,PULSE_VALUE,NULL,&pulseam,NULL,NULL);
+    read_config(cfg,MAX_PULSE,&pulsemax);
+    read_config(cfg,PULSE_VALUE,&pulseam);
 
     if (amount < 0 || amount > pulsemax) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
@@ -278,9 +278,9 @@ int main(int argc, char **argv) {
     }
 
     int set_amount, auto_amount, pulse_amount;
-    read_config(cnf,DEF_A,NULL,&set_amount,NULL,NULL);
-    read_config(cnf,AUTO_VALUE,NULL,&auto_amount,NULL,NULL);
-    read_config(cnf,PULSE_VALUE,NULL,&pulse_amount,NULL,NULL);
+    read_config(cnf,DEF_A,&set_amount);
+    read_config(cnf,AUTO_VALUE,&auto_amount);
+    read_config(cnf,PULSE_VALUE,&pulse_amount);
     if (argc > 2) {
         set_amount = atoi(argv[2]);
         auto_amount = atoi(argv[2]);

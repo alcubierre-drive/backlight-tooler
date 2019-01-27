@@ -269,20 +269,20 @@ void delete_config(void** cfg) {
     }
 }
 
-void read_config(void** cfg, int which, char* c, int* i, bool* b, float* f) {
+void read_config(void** cfg, int which, void* out ) {
     int type = get_type(cfg, which);
     switch(type) {
         case CHAR_TYPE:
-            strcpy(c,((cf_char*)(cfg[which]))->val);
+            strcpy(out,((cf_char*)(cfg[which]))->val);
             break;
         case INT_TYPE:
-            *i = ((cf_int*)(cfg[which]))->val;
+            *((int*)out) = ((cf_int*)(cfg[which]))->val;
             break;
         case BOOL_TYPE:
-            *b = ((cf_bool*)(cfg[which]))->val;
+            *((bool*)out) = ((cf_bool*)(cfg[which]))->val;
             break;
         case FLOAT_TYPE:
-            *f = ((cf_float*)(cfg[which]))->val;
+            *((float*)out) = ((cf_float*)(cfg[which]))->val;
             break;
     }
 }

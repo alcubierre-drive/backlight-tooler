@@ -2,8 +2,8 @@
 
 float normalize( void** c, int webcam_level ) {
     int web_lo, web_hi;
-    read_config(c,W_LOW,NULL,&web_lo,NULL,NULL);
-    read_config(c,W_HIGH,NULL,&web_hi,NULL,NULL);
+    read_config(c,W_LOW,&web_lo);
+    read_config(c,W_HIGH,&web_hi);
     // normalize the webcam light level. return value between 0 and 1.
     float result = (float)(webcam_level - web_lo) / (float)(web_hi - web_lo);
     if (result <= 0.0) {
@@ -96,15 +96,15 @@ int scaled_brightness( void** c, int level, float (*scale)(float*),
     free(funcparams);
 
     int maxbr, minbr;
-    read_config(c,MAX_B,NULL,&maxbr,NULL,NULL);
-    read_config(c,MIN_B,NULL,&minbr,NULL,NULL);
+    read_config(c,MAX_B,&maxbr);
+    read_config(c,MIN_B,&minbr);
 
     return (maxbr-minbr)*scaled + minbr;
 }
 
 int choose_function_and_params( void** cfg, int level ) {
     char name[512];
-    read_config(cfg,USE_FUNCTION,name,NULL,NULL,NULL);
+    read_config(cfg,USE_FUNCTION,name);
     float param;
     int result;
     if (!strcmp(name,"linear")) {
@@ -114,13 +114,13 @@ int choose_function_and_params( void** cfg, int level ) {
         param = 2.0;
         result = scaled_brightness( cfg, level, &power, &param, 1 );
     } else if (!strcmp(name,"power")) {
-        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
+        read_config(cfg,FUNC_PARAM,&param);
         result = scaled_brightness( cfg, level, &power, &param, 1 );
     } else if (!strcmp(name,"exponential")) {
-        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
+        read_config(cfg,FUNC_PARAM,&param);
         result = scaled_brightness( cfg, level, &exponential, &param, 1 );
     } else if (!strcmp(name,"logarithmic")) {
-        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
+        read_config(cfg,FUNC_PARAM,&param);
         result = scaled_brightness( cfg, level, &logarithmic, &param, 1 );
     } else if (!strcmp(name,"factorial")) {
         result = scaled_brightness( cfg, level, &factorial, NULL, 0 );

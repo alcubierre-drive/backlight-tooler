@@ -1,10 +1,10 @@
 #include "webcam.h"
 int getLightLevel(void** cfg) {
     char name[512];
-    read_config(cfg,W_DEV,name,NULL,NULL,NULL);
+    read_config(cfg,W_DEV,name);
     int width, height;
-    read_config(cfg,WIDTH,NULL,&width,NULL,NULL);
-    read_config(cfg,HEIGHT,NULL,&height,NULL,NULL);
+    read_config(cfg,WIDTH,&width);
+    read_config(cfg,HEIGHT,&height);
 
     int fd = open(name, O_RDWR);
     struct v4l2_capability cap;
