@@ -8,6 +8,42 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+typedef struct {
+    char val[512];
+    bool has;
+} cf_char;
+typedef struct {
+    int val;
+    bool has;
+} cf_int;
+typedef struct {
+    float val;
+    bool has;
+} cf_float;
+typedef struct {
+    bool val;
+    bool has;
+} cf_bool;
+
+typedef struct {
+    char c[512];
+    int i;
+    bool b;
+    float f;
+} defaults;
+
+typedef struct {
+    char *key;
+    int val;
+    int type;
+    defaults def;
+} t_symstruct;
+
+#define CHAR_TYPE 1
+#define INT_TYPE 2
+#define FLOAT_TYPE 3
+#define BOOL_TYPE 4
+
 #define W_DEV 0
 #define B_DEV 1
 #define K_DEV 2
@@ -29,83 +65,60 @@
 #define KBD_MAX 18
 #define BADKEY -1
 
-#define CHAR_TYPE 1
-#define INT_TYPE 2
-#define FLOAT_TYPE 3
-#define BOOL_TYPE 4
+#ifdef USE_LOOKUP_TABLES
 
-typedef struct cf_char {
-    char val[512];
-    bool has;
-} cf_char;
-typedef struct cf_int {
-    int val;
-    bool has;
-} cf_int;
-typedef struct cf_float {
-    float val;
-    bool has;
-} cf_float;
-typedef struct cf_bool {
-    bool val;
-    bool has;
-} cf_bool;
-
-struct config {
-    cf_char WebcamDevice;
-    cf_char BacklightDevice;
-    cf_char KeyboardDevice;
-    cf_bool UseKeyboard;
-    cf_int MaxBrightness;
-    cf_int MinBrightness;
-    cf_int DefaultSpeed;
-    cf_int DefaultAmount;
-    cf_int WebcamWidth;
-    cf_int WebcamHeight;
-    cf_int WebcamLightValueLow;
-    cf_int WebcamLightValueHigh;
-    cf_int AutoAmount;
-    cf_int PulseAmount;
-    cf_int PulseMax;
-    cf_char UseFunction;
-    cf_float FunctionParam;
-    cf_float KeyboardValue;
-    cf_float KeyboardMaxBrightness;
+const defaults defaultstable[] = {
+    { "/dev/video0", 0, 0, 0 },
+    { "/sys/class/backlight/intel_backlight/brightness", 0, 0, 0 },
+    { "/sys/devices/platform/thinkpad_acpi/leds/tpacpi::kbd_backlight/brightness", 0, 0, 0},
+    { "", 0, false, 0 },
+    { "", 1000, 0, 0 },
+    { "", 10, 0, 0 },
+    { "", 100, 0, 0 },
+    { "", 100, 0, 0 },
+    { "", 1, 0, 0 },
+    { "", 1280, 0, 0 },
+    { "", 720, 0, 0 },
+    { "", 77, 0, 0 },
+    { "", 200, 0, 0 },
+    { "", 30, 0, 0 },
+    { "", 1060, 0, 0 },
+    { "linear", 0, 0, 0 },
+    { "", 0, 0, 1.0 },
+    { "", 0, 0, 0.25 },
+    { "", 2, 0, 0 }
 };
-typedef struct config config;
-
-typedef struct {
-    char *key;
-    int val;
-    int type;
-} t_symstruct;
-static const t_symstruct lookuptable[] = {
-    { "WebcamDevice", W_DEV, CHAR_TYPE },
-    { "BacklightDevice", B_DEV, CHAR_TYPE },
-    { "KeyboardDevice", K_DEV, CHAR_TYPE },
-    { "UseKeyboard", U_KBD, BOOL_TYPE },
-    { "MaxBrightness", MAX_B, INT_TYPE },
-    { "MinBrightness", MIN_B, INT_TYPE },
-    { "DefaultSpeed", DEF_S, INT_TYPE },
-    { "DefaultAmount", DEF_A, INT_TYPE },
-    { "AutoAmount", AUTO_VALUE, INT_TYPE },
-    { "WebcamWidth", WIDTH, INT_TYPE },
-    { "WebcamHeight", HEIGHT, INT_TYPE },
-    { "WebcamLightValueLow", W_LOW, INT_TYPE },
-    { "WebcamLightValueHigh", W_HIGH, INT_TYPE },
-    { "PulseAmount", PULSE_VALUE, INT_TYPE },
-    { "PulseMax", MAX_PULSE, INT_TYPE },
-    { "Function", USE_FUNCTION, CHAR_TYPE },
-    { "FuncParam", FUNC_PARAM, FLOAT_TYPE },
-    { "KeyboardValue", KBD_VAL, FLOAT_TYPE },
-    { "KeyboardMaxBrightness", KBD_MAX, FLOAT_TYPE }
+const t_symstruct lookuptable[] = {
+    { "WebcamDevice", W_DEV, CHAR_TYPE, defaultstable[0] },
+    { "BacklightDevice", B_DEV, CHAR_TYPE, defaultstable[1] },
+    { "KeyboardDevice", K_DEV, CHAR_TYPE, defaultstable[2] },
+    { "UseKeyboard", U_KBD, BOOL_TYPE, defaultstable[3] },
+    { "MaxBrightness", MAX_B, INT_TYPE, defaultstable[4] },
+    { "MinBrightness", MIN_B, INT_TYPE, defaultstable[5] },
+    { "DefaultSpeed", DEF_S, INT_TYPE, defaultstable[6] },
+    { "DefaultAmount", DEF_A, INT_TYPE, defaultstable[7] },
+    { "AutoAmount", AUTO_VALUE, INT_TYPE, defaultstable[8] },
+    { "WebcamWidth", WIDTH, INT_TYPE, defaultstable[9] },
+    { "WebcamHeight", HEIGHT, INT_TYPE, defaultstable[10] },
+    { "WebcamLightValueLow", W_LOW, INT_TYPE, defaultstable[11] },
+    { "WebcamLightValueHigh", W_HIGH, INT_TYPE, defaultstable[12] },
+    { "PulseAmount", PULSE_VALUE, INT_TYPE, defaultstable[13] },
+    { "PulseMax", MAX_PULSE, INT_TYPE, defaultstable[14] },
+    { "Function", USE_FUNCTION, CHAR_TYPE, defaultstable[15] },
+    { "FuncParam", FUNC_PARAM, FLOAT_TYPE, defaultstable[16] },
+    { "KeyboardValue", KBD_VAL, FLOAT_TYPE, defaultstable[17] },
+    { "KeyboardMaxBrightness", KBD_MAX, INT_TYPE, defaultstable[18] }
 };
-
 #define NKEYS sizeof(lookuptable)/sizeof(t_symstruct)
 
-config InitConfig();
-void ReadConfig( config*, char* path );
-void DefaultConfig( config* );
-void dbg_print_config( config* );
+#endif
+
+void read_configuration_file( void**, char* path );
+void default_config( void** );
+void init_config(void**);
+void dbg_cnf(void**);
+void delete_config(void**);
+int get_keynum();
+void read_config(void** cfg, int which, char *c, int* i, bool* b, float* f);
 
 #endif // READCONFIG_H

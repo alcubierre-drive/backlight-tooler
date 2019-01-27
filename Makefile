@@ -5,7 +5,7 @@ all:
 	$(CC) -c webcam.c
 	$(CC) -c readconfig.c
 	$(CC) -c functions.c
-	$(CC) -lm main.c webcam.o functions.o readconfig.o -o $(BINARY)
+	$(CC) -lm main.c *.o -o $(BINARY)
 install:
 	mkdir -p $(PREFIX)/usr/bin/
 	mkdir -p $(PREFIX)/usr/lib/systemd/user/

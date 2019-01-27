@@ -1,9 +1,11 @@
 #include "functions.h"
 
-float normalize( config* c, int webcam_level ) {
+float normalize( void** c, int webcam_level ) {
+    int web_lo, web_hi;
+    read_config(c,W_LOW,NULL,&web_lo,NULL,NULL);
+    read_config(c,W_HIGH,NULL,&web_hi,NULL,NULL);
     // normalize the webcam light level. return value between 0 and 1.
-    float result = (float)(webcam_level - c->WebcamLightValueLow.val) /
-        (float)(c->WebcamLightValueHigh.val - c->WebcamLightValueLow.val);
+    float result = (float)(webcam_level - web_lo) / (float)(web_hi - web_lo);
     if (result <= 0.0) {
         fprintf(stderr,"[functions] Warn: not normalized: %.3f, needs [0,1]\n",
                 result);
@@ -82,7 +84,7 @@ float minkowski( float* x ) {
     return y + d;
 }
 
-int scaled_brightness( config* c, int level, float (*scale)(float*),
+int scaled_brightness( void** c, int level, float (*scale)(float*),
         float* params, int nparams ) {
 
     float* funcparams = malloc((nparams+1)*sizeof(float));
@@ -93,13 +95,16 @@ int scaled_brightness( config* c, int level, float (*scale)(float*),
     float scaled = (*scale)(funcparams);
     free(funcparams);
 
-    return (c->MaxBrightness.val-c->MinBrightness.val)*scaled +
-        c->MinBrightness.val;
+    int maxbr, minbr;
+    read_config(c,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(c,MIN_B,NULL,&minbr,NULL,NULL);
+
+    return (maxbr-minbr)*scaled + minbr;
 }
 
-int choose_function_and_params( config* cfg, int level ) {
-    char* name;
-    name = cfg->UseFunction.val;
+int choose_function_and_params( void** cfg, int level ) {
+    char name[512];
+    read_config(cfg,USE_FUNCTION,name,NULL,NULL,NULL);
     float param;
     int result;
     if (!strcmp(name,"linear")) {
@@ -109,13 +114,13 @@ int choose_function_and_params( config* cfg, int level ) {
         param = 2.0;
         result = scaled_brightness( cfg, level, &power, &param, 1 );
     } else if (!strcmp(name,"power")) {
-        param = cfg->FunctionParam.val;
+        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
         result = scaled_brightness( cfg, level, &power, &param, 1 );
     } else if (!strcmp(name,"exponential")) {
-        param = cfg->FunctionParam.val;
+        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
         result = scaled_brightness( cfg, level, &exponential, &param, 1 );
     } else if (!strcmp(name,"logarithmic")) {
-        param = cfg->FunctionParam.val;
+        read_config(cfg,FUNC_PARAM,NULL,NULL,NULL,&param);
         result = scaled_brightness( cfg, level, &logarithmic, &param, 1 );
     } else if (!strcmp(name,"factorial")) {
         result = scaled_brightness( cfg, level, &factorial, NULL, 0 );

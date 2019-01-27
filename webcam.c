@@ -1,13 +1,19 @@
 #include "webcam.h"
-int getLightLevel(config* cfg) {
-    int fd = open(cfg->WebcamDevice.val, O_RDWR);
+int getLightLevel(void** cfg) {
+    char name[512];
+    read_config(cfg,W_DEV,name,NULL,NULL,NULL);
+    int width, height;
+    read_config(cfg,WIDTH,NULL,&width,NULL,NULL);
+    read_config(cfg,HEIGHT,NULL,&height,NULL,NULL);
+
+    int fd = open(name, O_RDWR);
     struct v4l2_capability cap;
     struct v4l2_format format;
     ioctl(fd, VIDIOC_QUERYCAP, &cap);
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    format.fmt.pix.width = cfg->WebcamWidth.val;
-    format.fmt.pix.height = cfg->WebcamHeight.val;
+    format.fmt.pix.width = width;
+    format.fmt.pix.height = height;
 
     ioctl(fd, VIDIOC_S_FMT, &format);
     struct v4l2_requestbuffers bufrequest;
@@ -49,7 +55,9 @@ int getLightLevel(config* cfg) {
 
     long total = 0;
     int i = 0;
-    for ( i = 0; i != bufferinfo.length; ++i) total += ((unsigned char*)buffer_start)[i];
+    for ( i = 0; i != bufferinfo.length; ++i) {
+        total += ((unsigned char*)buffer_start)[i];
+    }
     munmap(buffer_start, bufferinfo.length);
     return total/i;
 }

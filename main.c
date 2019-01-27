@@ -23,91 +23,121 @@
 
 #define CONFIG_FILE "/etc/backlight-tooler.conf"
 
-int getBrightness(config* );
-void setBrightness(config*, int target);
+int getBrightness( void** );
+void setBrightness( void**, int target);
 
-void inc(config* cfg, int amount) {
+void inc(void** cfg, int amount) {
+    int maxbr;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+
     int brightness = getBrightness(cfg) + amount;
-    brightness = brightness >cfg->MaxBrightness.val?cfg->MaxBrightness.val : brightness;
+    brightness = brightness > maxbr ? maxbr : brightness;
     setBrightness(cfg, brightness);
 }
 
-void dec(config* cfg, int amount) {
+void dec(void** cfg, int amount) {
+    int minbr;
+    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
+
     int brightness = getBrightness(cfg) - amount;
-    brightness = brightness <cfg->MinBrightness.val?cfg->MinBrightness.val : brightness;
+    brightness = brightness < minbr ? minbr : brightness;
     setBrightness(cfg, brightness);
 }
 
-void writeBrightness(config* cfg, int target) {
-    if (target < cfg->MinBrightness.val) target = cfg->MinBrightness.val;
-    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
+void writeBrightness(void** cfg, int target) {
+    int minbr, maxbr;
+    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    char name[512];
+    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+
+    if (target < minbr) target = minbr;
+    if (target > maxbr) target = minbr;
     char buffer[256];
     sprintf(buffer, "%i", target);
-    FILE* file = fopen(cfg->BacklightDevice.val, "w");
+    FILE* file = fopen(name, "w");
     if (file == NULL) {
-        fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->BacklightDevice.val);
+        fprintf(stderr, "[main] could not write to '%s'\n.",name);
         exit(1);
     }
     fwrite(buffer, 4, 1, file);
     fclose(file);
 }
 
-void writeBrightnessUnbound(config* cfg, int target) {
+void writeBrightnessUnbound(void** cfg, int target) {
+    int maxbr;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    char name[512];
+    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+
     if (target < 0) target = 0;
-    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
+    if (target > maxbr) target = maxbr;
     char buffer[256];
     sprintf(buffer, "%i", target);
-    FILE* file = fopen(cfg->BacklightDevice.val, "w");
+    FILE* file = fopen(name, "w");
     if (file == NULL) {
-        fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->BacklightDevice.val);
+        fprintf(stderr, "[main] could not write to '%s'\n.", name);
         exit(1);
     }
     fwrite(buffer, 4, 1, file);
     fclose(file);
 }
 
-void setBrightness(config* cfg, int target) {
-    if (target < cfg->MinBrightness.val) target = cfg->MinBrightness.val;
-    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
+void setBrightness(void** cfg, int target) {
+    int minbr, maxbr;
+    read_config(cfg,MIN_B,NULL,&minbr,NULL,NULL);
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    int defsp;
+    read_config(cfg,DEF_S,NULL,&defsp,NULL,NULL);
+
+    if (target < minbr) target = minbr;
+    if (target > maxbr) target = maxbr;
     int current = getBrightness(cfg);
     int inc = current > target ? -1 : 1;
     int steps = (target-current)*inc;
     while (steps --> 0) {
         current += inc;
         writeBrightness(cfg, current);
-        usleep(20000/cfg->DefaultSpeed.val);
+        usleep(20000/defsp);
     }
 }
 
-void setBrightnessUnbound(config* cfg, int target) {
+void setBrightnessUnbound(void** cfg, int target) {
+    int maxbr;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    int defsp;
+    read_config(cfg,DEF_S,NULL,&defsp,NULL,NULL);
+
     if (target < 0) target = 0;
-    if (target > cfg->MaxBrightness.val) target = cfg->MaxBrightness.val;
+    if (target > maxbr) target = maxbr;
     int current = getBrightness(cfg);
     int inc = current > target ? -1 : 1;
     int steps = (target-current)*inc;
     while (steps --> 0) {
         current += inc;
         writeBrightnessUnbound(cfg, current);
-        usleep(20000/cfg->DefaultSpeed.val);
+        usleep(20000/defsp);
     }
 }
 
-void setBrightnessKeyboard(config* cfg, char* val) {
-    FILE* file = fopen(cfg->KeyboardDevice.val, "w");
+void setBrightnessKeyboard(void** cfg, char* val) {
+    char name[512];
+    read_config(cfg,K_DEV,name,NULL,NULL,NULL);
+
+    FILE* file = fopen(name, "w");
     if (file == NULL) {
-        fprintf(stderr, "[main] could not write to '%s'\n.",
-                cfg->KeyboardDevice.val);
+        fprintf(stderr, "[main] could not write to '%s'\n.",name);
         exit(1);
     }
     fprintf(file, val);
     fclose(file);
 }
 
-void pulse(config* cfg, int amount) {
+void pulse(void** cfg, int amount) {
+    int high;
+    read_config(cfg,MAX_B,NULL,&high,NULL,NULL);
+
     int low = 1;
-    int high = cfg->MaxBrightness.val;
     int t;
     while (1){
         for (t = low; t < high; ++t) {
@@ -121,11 +151,13 @@ void pulse(config* cfg, int amount) {
     }
 }
 
-int getBrightness(config* cfg) {
-    FILE* file = fopen(cfg->BacklightDevice.val, "r");
+int getBrightness(void** cfg) {
+    char name[512];
+    read_config(cfg,B_DEV,name,NULL,NULL,NULL);
+
+    FILE* file = fopen(name, "r");
     if (file == NULL) {
-        fprintf(stderr, "[main] could not read '%s'\n.",
-                cfg->BacklightDevice.val);
+        fprintf(stderr, "[main] could not read '%s'\n.",name);
         exit(1);
     }
     char buf[16];
@@ -134,25 +166,35 @@ int getBrightness(config* cfg) {
     return atoi(buf);
 }
 
-void autoBrightness(config* cfg, int amount) {
+void autoBrightness(void** cfg, int amount) {
+    int maxbr;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    bool usekbd;
+    read_config(cfg,U_KBD,NULL,NULL,&usekbd,NULL);
+    float kbdval;
+    read_config(cfg,KBD_VAL,NULL,NULL,NULL,&kbdval);
+    int kbdmaxbr;
+    read_config(cfg,KBD_MAX,NULL,&kbdmaxbr,NULL,NULL);
+
+
     int temp_amount = getLightLevel(cfg)*amount;
     int target = choose_function_and_params(cfg, temp_amount);
 
     if (target < 0) {
         target = 0;
-    } else if (target > cfg->MaxBrightness.val) {
-        target = cfg->MaxBrightness.val;
+    } else if (target > maxbr) {
+        target = maxbr;
     }
 
     setBrightness(cfg, target);
-    if (cfg->UseKeyboard.val) {
-        if (target <= cfg->KeyboardValue.val*cfg->MaxBrightness.val) {
+    if (usekbd) {
+        if (target <= kbdval*maxbr) {
             float tmp = target;
-            tmp -= cfg->KeyboardValue.val*cfg->MaxBrightness.val;
-            tmp /= (float)(cfg->KeyboardValue.val*cfg->MaxBrightness.val);
-            int kbdbr = (int)((1.0+tmp)*cfg->KeyboardMaxBrightness.val+1.0);
-            if (kbdbr > cfg->KeyboardMaxBrightness.val) {
-                kbdbr = cfg->KeyboardMaxBrightness.val;
+            tmp -= kbdval*maxbr;
+            tmp /= (float)(kbdval*maxbr);
+            int kbdbr = (int)((1.0+tmp)*kbdmaxbr+1.0);
+            if (kbdbr > kbdmaxbr) {
+                kbdbr = kbdmaxbr;
             }
             char buffer[256];
             sprintf( buffer, "%i", kbdbr );
@@ -175,56 +217,70 @@ void help( char** argv ) {
          argv[0]);
 }
 
-void toggleBrightness(config* cfg) {
+void toggleBrightness(void** cfg) {
+    bool usekbd;
+    read_config(cfg,U_KBD,NULL,NULL,&usekbd,NULL);
+    int maxbr;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+
     int curr = getBrightness(cfg);
     if (curr != 0) {
         setBrightnessUnbound(cfg, 0);
-        if (cfg->UseKeyboard.val) {
+        if (usekbd) {
             setBrightnessKeyboard(cfg, "0");
         }
     } else {
-        setBrightnessUnbound(cfg, cfg->MaxBrightness.val);
-        if (cfg->UseKeyboard.val) {
+        setBrightnessUnbound(cfg, maxbr);
+        if (usekbd) {
             setBrightnessKeyboard(cfg, "0");
         }
     }
 }
 
-int chka(config* cfg, int amount) {
-    if (amount < 0 || amount > cfg->MaxBrightness.val) {
+int chka(void** cfg, int amount) {
+    int maxbr, defam;
+    read_config(cfg,MAX_B,NULL,&maxbr,NULL,NULL);
+    read_config(cfg,DEF_A,NULL,&defam,NULL,NULL);
+
+    if (amount < 0 || amount > maxbr) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
-                amount, cfg->MaxBrightness.val);
-        fprintf(stderr, "[main] Using default '%i'.\n", cfg->DefaultAmount.val);
-        return cfg->DefaultAmount.val;
+                amount, maxbr);
+        fprintf(stderr, "[main] Using default '%i'.\n", defam);
+        return defam;
     } else {
         return amount;
     }
 }
 
-int chkp(config* cfg, int amount) {
-    if (amount < 0 || amount > cfg->PulseMax.val) {
+int chkp(void** cfg, int amount) {
+    int pulsemax, pulseam;
+    read_config(cfg,MAX_PULSE,NULL,&pulsemax,NULL,NULL);
+    read_config(cfg,PULSE_VALUE,NULL,&pulseam,NULL,NULL);
+
+    if (amount < 0 || amount > pulsemax) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
-                amount, cfg->PulseMax.val);
-        fprintf(stderr, "[main] Using default '%i'.\n", cfg->PulseAmount.val);
-        return cfg->PulseAmount.val;
+                amount, pulsemax);
+        fprintf(stderr, "[main] Using default '%i'.\n", pulseam);
+        return pulseam;
     } else {
         return amount;
     }
 }
 
 int main(int argc, char **argv) {
-    config cfg = InitConfig();
-    ReadConfig(&cfg, CONFIG_FILE);
-    DefaultConfig(&cfg);
-
+    void** cnf = malloc(sizeof(void*)*get_keynum());
+    init_config(cnf);
+    read_configuration_file(cnf, CONFIG_FILE);
+    default_config(cnf);
     if (argc < 2) {
         help( argv );
         return 0;
     }
 
-    int set_amount = cfg.DefaultAmount.val;
-    int auto_amount = cfg.AutoAmount.val;
-    int pulse_amount = cfg.PulseAmount.val;
+    int set_amount, auto_amount, pulse_amount;
+    read_config(cnf,DEF_A,NULL,&set_amount,NULL,NULL);
+    read_config(cnf,AUTO_VALUE,NULL,&auto_amount,NULL,NULL);
+    read_config(cnf,PULSE_VALUE,NULL,&pulse_amount,NULL,NULL);
     if (argc > 2) {
         set_amount = atoi(argv[2]);
         auto_amount = atoi(argv[2]);
@@ -232,19 +288,25 @@ int main(int argc, char **argv) {
     }
 
     if (!strcmp(argv[1], "inc")) {
-        inc(&cfg, chka(&cfg, set_amount));
+        inc(cnf, chka(cnf, set_amount));
     } else if (!strcmp(argv[1], "dec")) {
-        dec(&cfg, chka(&cfg, set_amount));
+        dec(cnf, chka(cnf, set_amount));
     } else if (!strcmp(argv[1], "pulse")) {
-        pulse(&cfg, chkp(&cfg, pulse_amount));
+        pulse(cnf, chkp(cnf, pulse_amount));
     } else if (!strcmp(argv[1], "auto")) {
-        autoBrightness(&cfg, auto_amount);
+        autoBrightness(cnf, auto_amount);
     } else if (!strcmp(argv[1], "set") && argc > 2) {
-            setBrightness(&cfg, chka(&cfg, set_amount));
+            setBrightness(cnf, chka(cnf, set_amount));
     } else if (!strcmp(argv[1], "toggle")) {
-        toggleBrightness(&cfg);
+        toggleBrightness(cnf);
     } else if (!strcmp(argv[1], "info")) {
-        int level = getLightLevel(&cfg);
+        int level = getLightLevel(cnf);
         fprintf(stderr,"[info] Current webcam light level: %i\n",level);
-    } else { help( argv ); }
+    } else if (!strcmp(argv[1], "dbg")) {
+        dbg_cnf(cnf);
+    } else {
+        help( argv );
+    }
+    delete_config(cnf);
+    free(cnf);
 }

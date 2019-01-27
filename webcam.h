@@ -12,6 +12,6 @@
 #include <linux/videodev2.h>
 #include <sys/mman.h>
 
-int getLightLevel(config*);
+int getLightLevel(void**);
 
 #endif // WEBCAM_H
