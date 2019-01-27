@@ -246,6 +246,5 @@ int main(int argc, char **argv) {
     } else if (!strcmp(argv[1], "info")) {
         int level = getLightLevel(&cfg);
         fprintf(stderr,"[info] Current webcam light level: %i\n",level);
-        dbg_print_config( &cfg );
     } else { help( argv ); }
 }

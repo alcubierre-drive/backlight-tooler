@@ -1,8 +1,9 @@
 #include "readconfig.h"
 
-int keyfromstring(char *key) {
+int keyfromstring(char* key, int* type) {
     for (int i=0; i < NKEYS; ++i) {
         if (strcmp(lookuptable[i].key, key) == 0)
+            *type = lookuptable[i].type;
             return lookuptable[i].val;
     }
     return BADKEY;
@@ -39,6 +40,22 @@ void cf_bool_set( cf_bool x, char* y ) {
     }
     x.has = true;
 }
+void cf_set( void* structure, char* val, int type ) {
+    switch(type) {
+        case CHAR_TYPE:
+            cf_char_set( *((cf_char*)structure), val );
+            break;
+        case INT_TYPE:
+            cf_int_set( *((cf_int*)structure), val );
+            break;
+        case FLOAT_TYPE:
+            cf_float_set( *((cf_float*)structure), val );
+            break;
+        case BOOL_TYPE:
+            cf_bool_set( *((cf_bool*)structure), val );
+            break;
+    }
+}
 
 void ModifyConfig( config* cfg, char* line ) {
     if (line[strspn(line, " \t\v\r\n")] == '\0') {
@@ -56,26 +73,27 @@ void ModifyConfig( config* cfg, char* line ) {
     char* val;
     key = strtok(keyval,delimiter);
     val = strtok(NULL,delimiter);
-    switch(keyfromstring(key)) {
-        case W_DEV: cf_char_set(cfg->WebcamDevice, val); break;
-        case B_DEV: cf_char_set(cfg->BacklightDevice, val); break;
-        case K_DEV: cf_char_set(cfg->KeyboardDevice, val); break;
-        case U_KBD: cf_bool_set(cfg->UseKeyboard, val); break;
-        case MAX_B: cf_int_set(cfg->MaxBrightness, val); break;
-        case MIN_B: cf_int_set(cfg->MinBrightness, val); break;
-        case DEF_S: cf_int_set(cfg->DefaultSpeed, val); break;
-        case DEF_A: cf_int_set(cfg->DefaultAmount, val); break;
-        case WIDTH: cf_int_set(cfg->WebcamWidth, val); break;
-        case HEIGHT: cf_int_set(cfg->WebcamHeight, val); break;
-        case W_LOW: cf_int_set(cfg->WebcamLightValueLow, val); break;
-        case W_HIGH: cf_int_set(cfg->WebcamLightValueHigh, val); break;
-        case AUTO_VALUE: cf_int_set(cfg->AutoAmount, val); break;
-        case PULSE_VALUE: cf_int_set(cfg->PulseAmount, val); break;
-        case MAX_PULSE: cf_int_set(cfg->PulseMax, val); break;
-        case USE_FUNCTION: cf_char_set(cfg->UseFunction, val); break;
-        case FUNC_PARAM: cf_float_set(cfg->FunctionParam, val); break;
-        case KBD_VAL: cf_float_set(cfg->KeyboardValue, val); break;
-        case KBD_MAX: cf_float_set(cfg->KeyboardMaxBrightness, val); break;
+    int type = BADKEY;
+    switch( keyfromstring(key, &type) ) {
+        case W_DEV:        cf_set(&cfg->WebcamDevice,          val, type); break;
+        case B_DEV:        cf_set(&cfg->BacklightDevice,       val, type); break;
+        case K_DEV:        cf_set(&cfg->KeyboardDevice,        val, type); break;
+        case U_KBD:        cf_set(&cfg->UseKeyboard,           val, type); break;
+        case MAX_B:        cf_set(&cfg->MaxBrightness,         val, type); break;
+        case MIN_B:        cf_set(&cfg->MinBrightness,         val, type); break;
+        case DEF_S:        cf_set(&cfg->DefaultSpeed,          val, type); break;
+        case DEF_A:        cf_set(&cfg->DefaultAmount,         val, type); break;
+        case WIDTH:        cf_set(&cfg->WebcamWidth,           val, type); break;
+        case HEIGHT:       cf_set(&cfg->WebcamHeight,          val, type); break;
+        case W_LOW:        cf_set(&cfg->WebcamLightValueLow,   val, type); break;
+        case W_HIGH:       cf_set(&cfg->WebcamLightValueHigh,  val, type); break;
+        case AUTO_VALUE:   cf_set(&cfg->AutoAmount,            val, type); break;
+        case PULSE_VALUE:  cf_set(&cfg->PulseAmount,           val, type); break;
+        case MAX_PULSE:    cf_set(&cfg->PulseMax,              val, type); break;
+        case USE_FUNCTION: cf_set(&cfg->UseFunction,           val, type); break;
+        case FUNC_PARAM:   cf_set(&cfg->FunctionParam,         val, type); break;
+        case KBD_VAL:      cf_set(&cfg->KeyboardValue,         val, type); break;
+        case KBD_MAX:      cf_set(&cfg->KeyboardMaxBrightness, val, type); break;
         case BADKEY:
             fprintf(stderr, "[config] unknown key '%s'.\n", key);
             break;

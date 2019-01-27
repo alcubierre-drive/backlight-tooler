@@ -29,6 +29,11 @@
 #define KBD_MAX 18
 #define BADKEY -1
 
+#define CHAR_TYPE 1
+#define INT_TYPE 2
+#define FLOAT_TYPE 3
+#define BOOL_TYPE 4
+
 typedef struct cf_char {
     char val[512];
     bool has;
@@ -69,27 +74,31 @@ struct config {
 };
 typedef struct config config;
 
-typedef struct { char *key; int val; } t_symstruct;
+typedef struct {
+    char *key;
+    int val;
+    int type;
+} t_symstruct;
 static const t_symstruct lookuptable[] = {
-    { "WebcamDevice", W_DEV },
-    { "BacklightDevice", B_DEV },
-    { "KeyboardDevice", K_DEV },
-    { "UseKeyboard", U_KBD },
-    { "MaxBrightness", MAX_B },
-    { "MinBrightness", MIN_B },
-    { "DefaultSpeed", DEF_S },
-    { "DefaultAmount", DEF_A },
-    { "AutoAmount", AUTO_VALUE },
-    { "WebcamWidth", WIDTH },
-    { "WebcamHeight", HEIGHT },
-    { "WebcamLightValueLow", W_LOW },
-    { "WebcamLightValueHigh", W_HIGH },
-    { "PulseAmount", PULSE_VALUE },
-    { "PulseMax", MAX_PULSE },
-    { "Function", USE_FUNCTION },
-    { "FuncParam", FUNC_PARAM },
-    { "KeyboardValue", KBD_VAL },
-    { "KeyboardMaxBrightness", KBD_MAX }
+    { "WebcamDevice", W_DEV, CHAR_TYPE },
+    { "BacklightDevice", B_DEV, CHAR_TYPE },
+    { "KeyboardDevice", K_DEV, CHAR_TYPE },
+    { "UseKeyboard", U_KBD, BOOL_TYPE },
+    { "MaxBrightness", MAX_B, INT_TYPE },
+    { "MinBrightness", MIN_B, INT_TYPE },
+    { "DefaultSpeed", DEF_S, INT_TYPE },
+    { "DefaultAmount", DEF_A, INT_TYPE },
+    { "AutoAmount", AUTO_VALUE, INT_TYPE },
+    { "WebcamWidth", WIDTH, INT_TYPE },
+    { "WebcamHeight", HEIGHT, INT_TYPE },
+    { "WebcamLightValueLow", W_LOW, INT_TYPE },
+    { "WebcamLightValueHigh", W_HIGH, INT_TYPE },
+    { "PulseAmount", PULSE_VALUE, INT_TYPE },
+    { "PulseMax", MAX_PULSE, INT_TYPE },
+    { "Function", USE_FUNCTION, CHAR_TYPE },
+    { "FuncParam", FUNC_PARAM, FLOAT_TYPE },
+    { "KeyboardValue", KBD_VAL, FLOAT_TYPE },
+    { "KeyboardMaxBrightness", KBD_MAX, FLOAT_TYPE }
 };
 
 #define NKEYS sizeof(lookuptable)/sizeof(t_symstruct)
