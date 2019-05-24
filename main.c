@@ -242,7 +242,12 @@ int chka(void** cfg, int amount) {
     read_config(cfg,MAX_B,&maxbr);
     read_config(cfg,DEF_A,&defam);
 
-    if (amount < 0 || amount > maxbr) {
+    if (amount > maxbr) {
+        fprintf(stderr, "[main] Value '%i' too high. Must be within [0,%i].\n",
+                amount, maxbr);
+        fprintf(stderr, "[main] Using maximum '%i'.\n", maxbr);
+        return maxbr;
+    } else if (amount < 0) {
         fprintf(stderr, "[main] Invalid amount '%i'. Must be within [0,%i].\n",
                 amount, maxbr);
         fprintf(stderr, "[main] Using default '%i'.\n", defam);
