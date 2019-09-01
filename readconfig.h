@@ -2,11 +2,6 @@
 #define READCONFIG_H
 
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 typedef struct {
     char val[512];

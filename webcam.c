@@ -1,4 +1,15 @@
+#define _XOPEN_SOURCE 700
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <linux/videodev2.h>
+
 #include "webcam.h"
+#include "readconfig.h"
+
 int getLightLevel(void** cfg) {
     char name[512];
     read_config(cfg,W_DEV,name);
@@ -54,7 +65,7 @@ int getLightLevel(void** cfg) {
     ioctl(fd, VIDIOC_STREAMOFF, &type);
 
     long total = 0;
-    int i = 0;
+    unsigned i = 0;
     for ( i = 0; i != bufferinfo.length; ++i) {
         total += ((unsigned char*)buffer_start)[i];
     }

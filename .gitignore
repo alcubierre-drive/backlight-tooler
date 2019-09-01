@@ -1,4 +1,5 @@
 *.o
+*.d
 BacklightTooler
 backlight-tooler
 types.vim

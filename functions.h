@@ -1,9 +1,6 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-#include <math.h>
-#include "readconfig.h"
-
 float normalize( void**, int level );
 
 float logarithmic( float* );

@@ -1,4 +1,14 @@
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "functions.h"
+#include "readconfig.h"
+
+#ifndef M_PI
+#define M_PI (4.0*atan(1.0))
+#endif
 
 float normalize( void** c, int webcam_level ) {
     int web_lo, web_hi;
@@ -46,7 +56,7 @@ float power( float* x ) {
 }
 
 float factorial( float* x ) {
-    return gamma( *x+1.0 );
+    return tgamma( *x+1.0 );
 }
 
 float sine( float* x ) {

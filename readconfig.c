@@ -1,8 +1,16 @@
+#define _XOPEN_SOURCE 700
+
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #define USE_LOOKUP_TABLES
 #include "readconfig.h"
 
 int keyfromstring(char* key, int* type) {
-    for (int i=0; i < NKEYS; ++i) {
+    for (unsigned i=0; i < NKEYS; ++i) {
         if (strcmp(lookuptable[i].key, key) == 0) {
             *type = lookuptable[i].type;
             return lookuptable[i].val;
@@ -44,7 +52,7 @@ void cf_bool_set( cf_bool* x, char* y ) {
 }
 
 void get_name(int which, char* out) {
-    for (int i=0; i<NKEYS; ++i) {
+    for (unsigned i=0; i<NKEYS; ++i) {
         if (lookuptable[i].val == which) {
             strcpy(out,lookuptable[i].key);
             break;
@@ -77,7 +85,7 @@ void cf_set( void** cfg, int which, char* val, int type ) {
 }
 
 void cf_set_default( void** cfg ) {
-    for (int i=0; i<NKEYS; ++i) {
+    for (unsigned i=0; i<NKEYS; ++i) {
         int idx = lookuptable[i].val;
         defaults def = lookuptable[i].def;
         int type = lookuptable[i].type;
@@ -200,9 +208,9 @@ void default_config( void** cfg ) {
     }
 }
 
-int get_type(void** cfg, int which) {
+int get_type(int which) {
     int type = -1;
-    for (int i=0; i<NKEYS; ++i) {
+    for (unsigned i=0; i<NKEYS; ++i) {
         if (lookuptable[i].val == which) {
             type = lookuptable[i].type;
         }
@@ -211,8 +219,8 @@ int get_type(void** cfg, int which) {
 }
 
 void dbg_cnf( void** cfg ) {
-    for (int i=0; i<NKEYS; ++i) {
-        int type = get_type(cfg,i);
+    for (unsigned i=0; i<NKEYS; ++i) {
+        int type = get_type(i);
         char name[512];
         get_name(i,name);
         fprintf(stderr,"%s=",name);
@@ -234,7 +242,7 @@ void dbg_cnf( void** cfg ) {
 }
 
 void init_config(void** cfg) {
-    for (int i=0; i<NKEYS; ++i) {
+    for (unsigned i=0; i<NKEYS; ++i) {
         int idx = lookuptable[i].val;
         int type = lookuptable[i].type;
         int size = 0;
@@ -264,13 +272,13 @@ void init_config(void** cfg) {
 }
 
 void delete_config(void** cfg) {
-    for (int i=0; i<NKEYS; ++i) {
+    for (unsigned i=0; i<NKEYS; ++i) {
         free(cfg[i]);
     }
 }
 
 void read_config(void** cfg, int which, void* out ) {
-    int type = get_type(cfg, which);
+    int type = get_type(which);
     switch(type) {
         case CHAR_TYPE:
             strcpy(out,((cf_char*)(cfg[which]))->val);

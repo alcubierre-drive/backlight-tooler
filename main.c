@@ -13,18 +13,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
+#define _XOPEN_SOURCE 700
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "readconfig.h"
 #include "webcam.h"
 #include "functions.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
 #define CONFIG_FILE "/etc/backlight-tooler.conf"
 
 int getBrightness( void** );
 void setBrightness( void**, int target);
+
+static void usleep( size_t usec ) {
+    struct timespec req;
+    req.tv_sec = 0;
+    req.tv_nsec = usec * 1000L;
+    nanosleep(&req, NULL);
+}
 
 void inc(void** cfg, int amount) {
     int maxbr;

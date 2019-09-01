@@ -1,11 +1,25 @@
 PREFIX?=/
-BINARY=backlight-tooler
+BINARY:=backlight-tooler
+CC:=gcc
+LD:=gcc
+CFLAGS:=-O2 -Wall -Wextra -pedantic -std=c99
+LDFLAGS:=-lm
 
-all:
-	$(CC) -c webcam.c
-	$(CC) -c readconfig.c
-	$(CC) -c functions.c
-	$(CC) -lm main.c *.o -o $(BINARY)
+.PHONY: all install types clean
+
+SOURCE:=$(wildcard *.c)
+OBJECTS:=$(patsubst %.c,%.o,$(SOURCE))
+
+all: $(BINARY)
+
+$(BINARY): $(OBJECTS)
+	$(LD) $(LDFLAGS) $^ -o $@
+
+-include *.d
+
+%.o: %.c Makefile
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
+
 install:
 	mkdir -p $(PREFIX)/usr/bin/
 	mkdir -p $(PREFIX)/usr/lib/systemd/user/
@@ -25,4 +39,4 @@ types.vim: *.h
 		awk 'BEGIN{printf("syntax keyword Type\t")}\
 		{printf("%s ", $$1)}END{print ""}' > $@
 clean:
-	rm -f $(BINARY) *.o
+	-$(RM) $(BINARY) $(OBJECTS) *.d
