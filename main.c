@@ -55,6 +55,26 @@ void dec(void** cfg, int amount) {
     setBrightness(cfg, brightness);
 }
 
+void inc_percent(void** cfg, float percent) {
+    int maxbr;
+    read_config(cfg,MAX_B,&maxbr);
+
+    int brightness = getBrightness(cfg) + (int)((float)maxbr*percent);
+    brightness = brightness > maxbr ? maxbr : brightness;
+    setBrightness(cfg, brightness);
+}
+
+void dec_percent(void** cfg, float percent) {
+    int minbr;
+    read_config(cfg,MIN_B,&minbr);
+    int maxbr;
+    read_config(cfg,MAX_B,&maxbr);
+
+    int brightness = getBrightness(cfg) - (int)((float)maxbr*percent);
+    brightness = brightness < minbr ? minbr : brightness;
+    setBrightness(cfg, brightness);
+}
+
 void writeBrightness(void** cfg, int target) {
     int minbr, maxbr;
     read_config(cfg,MIN_B,&minbr);
@@ -101,6 +121,26 @@ void setBrightness(void** cfg, int target) {
     int defsp;
     read_config(cfg,DEF_S,&defsp);
 
+    if (target < minbr) target = minbr;
+    if (target > maxbr) target = maxbr;
+    int current = getBrightness(cfg);
+    int inc = current > target ? -1 : 1;
+    int steps = (target-current)*inc;
+    while (steps --> 0) {
+        current += inc;
+        writeBrightness(cfg, current);
+        usleep(20000/defsp);
+    }
+}
+
+void setBrightness_percent(void** cfg, float percent) {
+    int minbr, maxbr;
+    read_config(cfg,MIN_B,&minbr);
+    read_config(cfg,MAX_B,&maxbr);
+    int defsp;
+    read_config(cfg,DEF_S,&defsp);
+
+    int target = (int)((float)maxbr * percent);
     if (target < minbr) target = minbr;
     if (target > maxbr) target = maxbr;
     int current = getBrightness(cfg);
@@ -217,14 +257,10 @@ void autoBrightness(void** cfg, int amount) {
 }
 
 void help( char** argv ) {
-    printf("Usage: %s <option> [amount]\n"\
-           "           options:  set [amount]\n"\
-           "                     inc [amount]\n"\
-           "                     dec [amount]\n"\
-           "                     pulse [amount]\n"\
-           "                     auto [amount]\n"\
-           "                     toggle\n"\
-           "                     info\n",
+    printf("Usage: %s <option> [amount]\n"
+           "\n"
+           "options with [amount]:    set, inc, dec, pulse, auto\n"
+           "options without [amount]: toggle, info\n",
          argv[0]);
 }
 
@@ -268,6 +304,12 @@ int chka(void** cfg, int amount) {
     }
 }
 
+float chka_percent(float amount) {
+    amount = amount > 1.0 ? 1.0 : amount;
+    amount = amount < 0.0 ? 0.0 : amount;
+    return amount;
+}
+
 int chkp(void** cfg, int amount) {
     int pulsemax, pulseam;
     read_config(cfg,MAX_PULSE,&pulsemax);
@@ -281,6 +323,34 @@ int chkp(void** cfg, int amount) {
     } else {
         return amount;
     }
+}
+
+bool use_percent(int argc, char** argv) {
+    if (argc<=2) { return false; }
+    int len = strlen(argv[2]);
+    if (argv[2][len-1] == '%') {
+        argv[2][len-1] = '\0';
+        return true;
+    } else {
+        return false;
+    }
+}
+
+#define percch( fun, cnf, amount, usep ) \
+    if (usep) { \
+        fun##_percent( cnf, chka_percent( (float) amount / 100.0 ) ) ; \
+    } else { \
+        fun ( cnf, chka( cnf, amount ) ) ; \
+    }
+
+
+void print_info( void** cnf ) {
+    int level = getLightLevel(cnf);
+    fprintf(stderr,"[info] current webcam light level, brightness: %i, %i\n",
+            level, getBrightness(cnf));
+    int maxbr, minbr;
+    read_config(cnf, MAX_B, &maxbr); read_config(cnf, MIN_B, &minbr);
+    fprintf(stderr,"[info] min, max brightness: %i, %i\n",minbr,maxbr);
 }
 
 int main(int argc, char **argv) {
@@ -297,6 +367,7 @@ int main(int argc, char **argv) {
     read_config(cnf,DEF_A,&set_amount);
     read_config(cnf,AUTO_VALUE,&auto_amount);
     read_config(cnf,PULSE_VALUE,&pulse_amount);
+    bool percent = use_percent(argc,argv);
     if (argc > 2) {
         set_amount = atoi(argv[2]);
         auto_amount = atoi(argv[2]);
@@ -304,20 +375,19 @@ int main(int argc, char **argv) {
     }
 
     if (!strcmp(argv[1], "inc")) {
-        inc(cnf, chka(cnf, set_amount));
+        percch( inc, cnf, set_amount, percent )
     } else if (!strcmp(argv[1], "dec")) {
-        dec(cnf, chka(cnf, set_amount));
+        percch( dec, cnf, set_amount, percent )
     } else if (!strcmp(argv[1], "pulse")) {
         pulse(cnf, chkp(cnf, pulse_amount));
     } else if (!strcmp(argv[1], "auto")) {
         autoBrightness(cnf, auto_amount);
     } else if (!strcmp(argv[1], "set") && argc > 2) {
-            setBrightness(cnf, chka(cnf, set_amount));
+        percch( setBrightness, cnf, set_amount, percent )
     } else if (!strcmp(argv[1], "toggle")) {
         toggleBrightness(cnf);
     } else if (!strcmp(argv[1], "info")) {
-        int level = getLightLevel(cnf);
-        fprintf(stderr,"[info] Current webcam light level: %i\n",level);
+        print_info(cnf);
     } else if (!strcmp(argv[1], "dbg")) {
         dbg_cnf(cnf);
     } else {
