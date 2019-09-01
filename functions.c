@@ -56,7 +56,7 @@ float power( float* x ) {
 }
 
 float factorial( float* x ) {
-    return tgamma( *x+1.0 );
+    return tgamma( *x+2.0 ) - 1.0;
 }
 
 float sine( float* x ) {
