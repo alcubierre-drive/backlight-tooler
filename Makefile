@@ -1,14 +1,14 @@
 PREFIX?=/
 BINARY:=backlight-tooler
-CC:=gcc
-LD:=gcc
-CFLAGS:=-O2 -Wall -Wextra -pedantic -std=c99
-LDFLAGS:=-lm
+CXX:=g++
+LD:=g++
+CXXFLAGS:=-O2 -Wall -Wextra -pedantic -std=c++11
+LDFLAGS:=
 
 .PHONY: all install types clean
 
-SOURCE:=$(wildcard *.c)
-OBJECTS:=$(patsubst %.c,%.o,$(SOURCE))
+SOURCE:=$(wildcard *.cpp)
+OBJECTS:=$(patsubst %.cpp,%.o,$(SOURCE))
 
 all: $(BINARY)
 
@@ -17,8 +17,8 @@ $(BINARY): $(OBJECTS)
 
 -include *.d
 
-%.o: %.c Makefile
-	$(CC) $(CFLAGS) -MMD -c $< -o $@
+%.o: %.cpp Makefile
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
 install:
 	mkdir -p $(PREFIX)/usr/bin/
