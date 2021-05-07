@@ -5,6 +5,10 @@
 #include <fstream>
 #include <sstream>
 
+using std::cout;
+using std::cerr;
+using std::endl;
+
 static const char COMMENT_CHARS[] = "#\0//\0--\0%\0";
 static const char DELIMITER[] = "\0";
 static const char CONFIG_DELIMITER[] = "=";
@@ -80,7 +84,7 @@ void InputKey::_splitup( string line ) {
         if (loc == line.size()) val = "";
         else val = line.substr(loc+1,line.size());
     } else {
-        std::cerr << "use syntax '" << line << "=val'" << std::endl;
+        cerr << "use syntax '" << line << "=val'" << endl;
         key = "\0";
         val = "\0";
     }
@@ -111,7 +115,7 @@ void get_opt_argc_argv( vector<int>& opt_idx, const vector<char*>& argv ) {
             opt_idx.push_back(i);
         } else if (arg[2] != '\0') {
             // skip all empty options
-            std::cerr << "unparsed option: '" << arg << "'" << std::endl;
+            cerr << "unparsed option: '" << arg << "'" << endl;
         }
     }
 }
@@ -171,6 +175,8 @@ Input::Input( int* p_argc, char*** p_argv ) {
 
     if (mode == "") {
         mode = "auto";
+        if (!dump_input_extra)
+            cout << "using auto mode" << endl;
     }
     if (value == -1.0) {
         value = 1.0;
@@ -179,7 +185,7 @@ Input::Input( int* p_argc, char*** p_argv ) {
     chosenFunction = chooseFunction( functionChoice );
 
     if (dump_input_extra || _dump_self) {
-        std::cout << *this << std::endl;
+        cout << *this << endl;
         exit(1);
     }
 }
@@ -194,7 +200,7 @@ void Input::_read_config_file() {
     std::ifstream infile(_configFile);
     if (!infile) {
         if (_configFile != "")
-            std::cerr << "conffile '" << _configFile << "' does not exist. Using defaults." << std::endl;
+            cerr << "conffile '" << _configFile << "' does not exist. Using defaults." << endl;
     } else {
         while (infile) {
             string current_line;
@@ -230,7 +236,7 @@ static vector<T> split(const string& str) {
 #define CALLBACK_bool( val ) \
     if ((v == "true") || (v == "True") || (atoi(v.c_str()) == 1)) val = true; \
     else if ((v == "false") || (v == "False") || (atoi(v.c_str()) == 0)) val = false; \
-    else std::cerr <<  "'" << k << "' takes [true|True|1|false|False|0]" << std::endl;
+    else cerr <<  "'" << k << "' takes [true|True|1|false|False|0]" << endl;
 #define CALLBACK_int( val )    val = atoi(v.c_str());
 #define CALLBACK_double( val ) val = atof(v.c_str());
 #define CALLBACK_string( val ) val = v;
@@ -239,7 +245,7 @@ static vector<T> split(const string& str) {
 #define CALLBACK_VecNT( val, N, T ) \
     vector<T> val_vec = split<T>(v); \
     if (val_vec.size() != N) \
-        std::cerr << "'" << k << "' takes '<" #T ">,…' (dim " << N << ")" << std::endl; \
+        cerr << "'" << k << "' takes '<" #T ">,…' (dim " << N << ")" << endl; \
     if (val_vec.size() < N) { \
         for (int i=0; i<N; ++i) val_vec.push_back(T(0.0)); \
     } \
@@ -302,7 +308,7 @@ bool Input::_callback_func( InputKey* inkey ) {
     CALLBACK( "dump_input", _dump_self, bool )
 
     else {
-        std::cerr << "bad config key '" << k << "'" << std::endl;
+        cerr << "bad config key '" << k << "'" << endl;
     }
     return dump_self;
 }
@@ -347,7 +353,7 @@ ostream& operator<<( ostream& stream, const Input& inp ) {
 }
 
 static void print_help( const char* scriptname ) {
-    std::cerr  << "usage: '" << scriptname << " [short opts] -- [long opts]'\n"
+    cerr  << "usage: '" << scriptname << " [short opts] -- [long opts]'\n"
                << "  with [short opts]\n"
                << "    -c [config file] (default: '" CONFIG_FILE "')\n"
                << "    -m [mode] (set, inc, dec, auto, toggle, info)\n"
@@ -375,7 +381,7 @@ static void check_if_has_long_and_delimiter( int argc, char** argv ) {
         }
     }
     if (has_long && !has_delim) {
-        std::cerr << "missing double dash delimiter. exiting." << std::endl;
+        cerr << "missing double dash delimiter. exiting." << endl;
         exit (1);
     }
 }
@@ -405,7 +411,7 @@ static void parse_short_opts( int* p_argc, char*** p_argv, string& conffile,
                 verbose = true;
                 break;
             case '?':
-                std::cerr << "unknown option '-" << string(1,optopt) << "'" << std::endl;
+                cerr << "unknown option '-" << string(1,optopt) << "'" << endl;
                 break;
             default:
                 break;

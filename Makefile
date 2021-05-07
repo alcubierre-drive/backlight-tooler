@@ -2,7 +2,7 @@ PREFIX?=/
 BINARY:=backlight-tooler
 CXX:=g++
 LD:=g++
-CXXFLAGS:=-O2 -Wall -Wextra -pedantic -std=c++11
+CXXFLAGS:=-O3 -Wall -Wextra -pedantic -std=c++11
 LDFLAGS:=
 
 .PHONY: all install types clean
