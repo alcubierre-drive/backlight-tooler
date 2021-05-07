@@ -3,4 +3,4 @@ Description=Automated Backlight Setting
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/backlight-tooler auto
+ExecStart=/usr/bin/backlight-tooler -m auto -v

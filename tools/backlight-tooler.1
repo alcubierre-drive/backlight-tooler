@@ -2,10 +2,49 @@
 .SH NAME
 backlight-tooler \- collection of scripts to modify backlight
 .SH SYNOPSIS
-.B backlight-tooler [\fBinc|dec|set|auto|pulse\fR] [\fIamount\fR] where \fIamount\fR
-can be a percentage for \fIinc, dec, set\fR or an absolute value.
+.B backlight-tooler -m [\fImode\fR] [-V [\fIamount\fR] -v -h -d -c [\fIfile\fR]
 .br
-.B backlight-tooler [\fBtoggle|info\fR]
+.B -m
+.br
+.B auto
+.br
+automatic backlight setting with webcam
+.br
+.B set
+.br
+set backlight level to percentage given by \fB-V\fR flag
+.br
+.B inc / dec
+.br
+increase / decrease backlight level by percentage given by \fB-V\fR flag
+.br
+.B toggle
+.br
+toggle between display completely off and display fully lighted
+.br
+.B info
+.br
+show information that is useful for configuration
+.br
+.B -V
+.br
+percentage to the modes 'set', 'inc' or 'dec'.
+.br
+.B -v
+.br
+verbose logging
+.br
+.B -h
+.br
+show help
+.br
+.B -d
+.br
+show long help
+.br
+.B -c [\fIfile\fR]
+.br
+configuration file path that deviates from \fI/etc/backlight-tooler.conf\fR
 
 .B backlight-tooler-service-toggle
 
@@ -19,74 +58,5 @@ get automatic handling every 15 minutes.
 .br
 Lines starting with \fB//\fR or \fB#\fR are ignored. Every option has to be in
 the format \fIkey=value\fR without any whitespace or quotation marks. Possible
-Options are
+Options are in the default config file and visible with the \fB-d\fR flag.
 
-.B BacklightDevice \fIpath\fR
-.br
-Path to the sysfs brightness file, i.e. something like
-\fI/sys/class/backlight/intel_backlight/brightness\fR.
-.br
-.B KeyboardDevice \fIpath\fR
-.br
-Path to the sysfs keyboard brightness file (if applicable)
-.br
-.B UseKeyboard \fBtrue|false\fR
-.br
-.B KeyboardValue \fIfloat\fR
-.br
-Fraction from which on the keyboard backlight will be set. Defaults to 0.25.
-.br
-.B KeyboardMaxBrightness \fIinteger\fR
-.br
-.B MaxBrightness \fIinteger\fR
-.br
-.B MinBrightness \fIinteger\fR
-.br
-.B DefaultAmount \fIinteger\fR
-.br
-The amount that gets added to / substracted from the current brightness by
-default.
-.br
-.B AutoAmount \fIinteger\fR
-.br
-A weight factor that determines the impact of the webcam light level
-.br
-.B WebcamDevice \fIpath\fR
-.br
-Path to the webcam device to use, i.e. something like \fI/dev/video0\fR
-.br
-.B WebcamWidth \fIinteger\fR
-.br
-.B WebcamHeight \fIinteger\fR
-.br
-Image dimensions
-.br
-.B WebcamLightValueLow \fIinteger\fR
-.br
-.B WebcamLightValueHigh \fIinteger\fR
-.br
-Light level average values for the lowest and highest expected value. Current
-light level value can be obtained by executing \fBbacklight-tooler info\fR.
-.br
-.B DefaultSpeed \fIinteger\fR
-.br
-The speed the backlight is changed with (smooth transitions)
-.br
-.B PulseAmount \fIinteger\fR
-.br
-The default speed used for pulsing
-.br
-.B PulseMax \fIinteger\fR
-.br
-The maximum speed for pulsing
-.br
-.B Function \fIstring\fR
-.br
-The name of the function used to scale the brightness level. Possible functions
-are \fBlinear, quadratic, power, exponential, logarithmic, factorial\fR
-.br
-.B FuncParam \fIfloat\fR
-.br
-The parameter that the function accepts (will not impact \fBlinear,
-factorial\fR or \fBquadratic\fR). For \fBpower\fR, only positive values should
-be used.
