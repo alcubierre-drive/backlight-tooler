@@ -11,6 +11,10 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
+using std::cout;
+using std::cerr;
+using std::endl;
+
 Backlight::Backlight( Input& input ) : _input(input) {
     if (_input.readMinMaxBrightness) {
         _input.maxBrightness = _readMaxBrightness( _input.backlightDevice );
@@ -33,11 +37,13 @@ size_t Backlight::_readBrightness( const string& file ) {
     std::ifstream infile(file);
     size_t result = 0;
     if (!infile) {
-        std::cerr << "could not read '" << file << "'." << std::endl;
+        cerr << "could not read '" << file << "'." << endl;
         return result;
     }
     infile >> result;
     infile.close();
+    if (_input.verbose)
+        cout << "read brightness " << result << " from '" << file << "'" << endl;
     return result;
 }
 
@@ -49,19 +55,23 @@ double Backlight::absoluteToRelative( size_t br ) {
 void Backlight::setBrightnessUnbound( size_t br, size_t kbr ) {
     std::ofstream brfile(_input.backlightDevice);
     if (!brfile) {
-        std::cerr << "could not write '" << _input.backlightDevice << "'." << std::endl;
+        cerr << "could not write '" << _input.backlightDevice << "'." << endl;
         return;
     }
     brfile << br;
     brfile.close();
+    if (_input.verbose)
+        cout << "set brightness to " << br << endl;
     if (_input.useKeyboard) {
         std::ofstream kbrfile(_input.keyboardDevice);
         if (!kbrfile) {
-            std::cerr << "could not write '" << _input.keyboardDevice << "'." << std::endl;
+            cerr << "could not write '" << _input.keyboardDevice << "'." << endl;
             return;
         }
         kbrfile << kbr;
         kbrfile.close();
+        if (_input.verbose)
+            cout << "set keyboard brightness to " << kbr << endl;
     }
 }
 
@@ -79,6 +89,10 @@ void Backlight::setBrightness( double x ) {
 
 Webcam::Webcam( Input& input ) : _input(input) {
     currentLightLevel = getLightLevel(_input.webcamDevice.c_str(), _input.webcamWidth, _input.webcamHeight);
+    if (_input.verbose)
+        cout << "current webcam light level " << currentLightLevel << " (max: "
+            << _input.webcamLightValHigh << ", min: "
+            << _input.webcamLightValLow << ")" << endl;
 }
 
 int Webcam::getLightLevel(const char* name, int width, int height) {
