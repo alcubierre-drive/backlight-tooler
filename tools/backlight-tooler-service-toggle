@@ -6,7 +6,7 @@ title="Automatic Backlight Control"
 runstring="started - every 15 min"
 stopstring="stopped"
 
-systemctl --user is-active backlight-tooler.timer
+status_before="$(systemctl --user is-active backlight-tooler.timer)"
 
 if [ $? -eq 0 ]; then
     systemctl --user stop backlight-tooler.timer
@@ -16,3 +16,7 @@ else
     systemctl --user start backlight-tooler.timer
     notify-send "$title" "$runstring"
 fi
+
+status_after="$(systemctl --user is-active backlight-tooler.timer)"
+
+echo "changing from ${status_before} to ${status_after}"
