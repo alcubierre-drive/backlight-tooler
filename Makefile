@@ -1,19 +1,19 @@
-PREFIX?=/
-BINARY:=backlight-tooler
-CXX:=g++
-LD:=g++
-CXXFLAGS:=-O3 -Wall -Wextra -pedantic -std=c++11
-LDFLAGS:=
+BINARY := backlight-tooler
+
+PREFIX ?= /
+CXX ?= g++
+CXXFLAGS ?= -O3 -Wall -Wextra -pedantic -std=c++11
+LDFLAGS ?=
 
 .PHONY: all install types clean
 
-SOURCE:=$(wildcard *.cpp)
-OBJECTS:=$(patsubst %.cpp,%.o,$(SOURCE))
+SOURCE := $(wildcard *.cpp)
+OBJECTS := $(patsubst %.cpp,%.o,$(SOURCE))
 
 all: $(BINARY)
 
 $(BINARY): $(OBJECTS)
-	$(LD) $(LDFLAGS) $^ -o $@
+	$(CXX) $(LDFLAGS) $^ -o $@
 
 -include *.d
 
