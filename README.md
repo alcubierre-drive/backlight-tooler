@@ -2,7 +2,7 @@
 
 ## Synopsis
 
-    backlight-tooler inc|dec|auto amount pulse|toggle
+    backlight-tooler -V value|auto
     
     backlight-tooler-service-toggle
 

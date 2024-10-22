@@ -2,49 +2,71 @@
 .SH NAME
 backlight-tooler \- collection of scripts to modify backlight
 .SH SYNOPSIS
-.B backlight-tooler -m [\fImode\fR] [-V [\fIamount\fR] -v -h -d -c [\fIfile\fR]
+.B backlight-tooler [OPTIONS]
 .br
-.B -m
+.B -c \fI/path/to/file.conf\fR
 .br
-.B auto
+set the path to a config file. defaults to /etc/backlight-tooler.conf
 .br
-automatic backlight setting with webcam
+.B -v value
 .br
-.B set
-.br
-set backlight level to percentage given by \fB-V\fR flag
-.br
-.B inc / dec
-.br
-increase / decrease backlight level by percentage given by \fB-V\fR flag
-.br
-.B toggle
-.br
-toggle between display completely off and display fully lighted
-.br
-.B info
-.br
-show information that is useful for configuration
+set backlight level to this percentage, or use automatic setting (when passing 'auto')
 .br
 .B -V
 .br
-percentage to the modes 'set', 'inc' or 'dec'.
+spit out verbose info, useful for configuration (esp. the webcam lightlevels)
 .br
-.B -v
+.B -W \fI/path/to/dev/video0\fR
 .br
-verbose logging
+put the video device file for automatic light level detection
+.br
+.B -w min,max
+.br
+set the minimum/maximum absolute limiting values for video device
+.br
+.B -d nx,ny
+.br
+set the image dimensions for video device
+.br
+.B -S \fI/path/to/sys/class/intel_brightness/\fR
+.br
+give the \fIdirectory\fR where the files for brightness control
+(\fIbrightness\fR, \fImax_brightness\fR) reside
+.br
+.B -s min
+.br
+set a minimum relative value for the screen brightness (between 0 and 1). Useful
+if you don't want your screen to turn off completely when it's very dark.
+.br
+.B -K \fI/path/to/sys/class/keyboard_led/\fR
+.br
+give the \fIdirectory\fR where the files for brightness control of the keyboard
+reside
+.br
+.B -k \fIboundary\fR
+.br
+use the value \fIboundary\fR (between 0 and 1) as an upper boundary up to which
+keyboard lightning should be turned on. If the targeted brightness value is
+above this limit, keyboard brightness will be set to 0.
+.br
+.B -m \fIboundary\fR
+.br
+use this value as minimum relative value for keyboard brightness, such that the
+keyboard stays lit in very dark environments.
+.br
+.B -F function
+.br
+use this function as a mapping for measured values to applied values; maps the
+interval [0,1] to [0,1]. Available functions: linear, pow, exp, log, gamma.
+.br
+.B -f function_params
+.br
+A function (set with \fB-F\fR) might need parameters. Those can be set here; as
+comma-separated list.
 .br
 .B -h
 .br
-show help
-.br
-.B -d
-.br
-show long help
-.br
-.B -c [\fIfile\fR]
-.br
-configuration file path that deviates from \fI/etc/backlight-tooler.conf\fR
+show this help, but in a slightly more compressed form.
 
 .B backlight-tooler-service-toggle
 
@@ -56,7 +78,8 @@ get automatic handling every 15 minutes.
 
 .B /etc/backlight-tooler.conf
 .br
-Lines starting with \fB//\fR or \fB#\fR are ignored. Every option has to be in
-the format \fIkey=value\fR without any whitespace or quotation marks. Possible
-Options are in the default config file and visible with the \fB-d\fR flag.
+Lines starting with \fB;\fR or \fB#\fR are ignored. Every option has to be in
+the format \fIkey=value\fR without any whitespace or quotation marks. Sections
+in .ini-style are important. Possible options/sections are in the default config
+file installed with this package under \fI/etc/backlight-tooler.conf\fR.
 
