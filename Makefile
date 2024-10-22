@@ -1,12 +1,10 @@
 BINARY := backlight-tooler
 
 PREFIX ?= /
-CXX ?= g++
-CC ?= gcc
-CCLD ?= gcc
-CXXFLAGS ?= -O3 -Wall -Wextra -pedantic -std=c++11
-CFLAGS ?= -O3 -Wall -Wextra -pedantic
-LDFLAGS += -lm
+CC := gcc
+CCLD := gcc
+CFLAGS := -O3 -Wall -Wextra -pedantic -flto
+LDFLAGS := -lm -flto=12 -O3 -Wall -Wextra -pedantic
 
 .PHONY: all install types clean
 
@@ -19,9 +17,6 @@ $(BINARY): $(OBJECTS)
 	$(CCLD) $(LDFLAGS) $^ -o $@
 
 -include *.d
-
-%.cpp.o: %.cpp Makefile
-	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
 %.c.o: %.c Makefile
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
