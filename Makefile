@@ -6,7 +6,7 @@ CC ?= gcc
 CCLD ?= gcc
 CXXFLAGS ?= -O3 -Wall -Wextra -pedantic -std=c++11
 CFLAGS ?= -O3 -Wall -Wextra -pedantic
-LDFLAGS ?= -lm
+LDFLAGS += -lm
 
 .PHONY: all install types clean
 
