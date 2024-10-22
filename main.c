@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
         funcsel_t f = selectfun( cfg.function_name, cfg.function_params );
         cfg.value_percent = (*f.fun)( wval, cfg.screen_br_min, f.p );
     } else {
-        float xval = (brightness_get(b)-cfg.screen_br_min)/(1.-cfg.screen_br_min) + cfg.value_percent/100.0;
+        float xval = brightness_get(b) + cfg.value_percent/100.0;
         if (xval < cfg.screen_br_min) xval = cfg.screen_br_min;
         if (xval > 1.0) xval = 1.0;
         cfg.value_percent = xval;
