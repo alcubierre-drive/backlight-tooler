@@ -3,8 +3,8 @@ BINARY := backlight-tooler
 PREFIX ?= /
 CC := gcc
 CCLD := gcc
-CFLAGS := -O3 -Wall -Wextra -pedantic -flto
-LDFLAGS := -lm -flto=12 -O3 -Wall -Wextra -pedantic
+CFLAGS += -O3 -Wall -Wextra -pedantic -flto
+LDFLAGS += -lm -flto=12 -O3 -Wall -Wextra -pedantic
 
 .PHONY: all install types clean
 

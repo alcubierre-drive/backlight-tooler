@@ -185,17 +185,38 @@ static int config_parser( void* c_, const char* section, const char* name, const
 static int atofN( const char* str_, float* ary, int ary_max );
 static int atou64N( const char* str_, uint64_t* ary, int ary_max );
 
+static void parse_config_file( config_t* cfg ) {
+    int ii = ini_parse(cfg->config_file, config_parser, cfg);
+    if (ii < 0 && cfg->config_file_touched) fprintf(stderr, "can't load '%s'\n", cfg->config_file);
+    if (ii > 0 && verbose) fprintf( stderr, "config file parsing error in l.%i\n", ii );
+}
+
 static config_t parse_args( int* pargc, char*** pargv ) {
     config_t cfg = config_defaults;
+    parse_config_file(&cfg);
 
     char pad[512] = "";
     sprintf( pad, "%*s", (int)strlen(*pargv[0]), " " );
     int opt;
-    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: h")) != -1) {
+
+    // we do option parsing twice in order to first find a config file, and then
+    // override options found in the config file
+    while ((opt = getopt(*pargc, *pargv, ":c:v:V W:w:d: S:s: K:k:m: F:f: h")) != -1) {
         switch (opt) {
-            case 'c': strcpy(cfg.config_file, optarg); cfg.config_file_touched = 1; break;
+            case 'c': strcpy(cfg.config_file, optarg); cfg.config_file_touched=1; break;
             case 'v': if (strcmp(optarg, "auto") != 0) cfg.value_percent = atof(optarg); break;
             case 'V': verbose = 1; break;
+            default: break;
+        }
+    }
+    parse_config_file(&cfg);
+    optind = 1;
+    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: h")) != -1) {
+        switch (opt) {
+            // handled above
+            case 'c':
+            case 'v':
+            case 'V': break;
 
             case 'W': strcpy(cfg.webcam_path, optarg); break;
             case 'w': atou64N(optarg, &cfg.webcam_br_min, 2); break;
@@ -220,15 +241,13 @@ static config_t parse_args( int* pargc, char*** pargv ) {
 "       %s [-F function name] [-f function params (a,b,c,…)] [-h:this help]\n"
                                    , *pargv[0], pad, pad, pad, pad, pad );
                       exit(EXIT_SUCCESS); break;
+            case ':':
             case '?':
             default:
                       fprintf( stderr, "%s -h for help\n", *pargv[0] );
                       exit(EXIT_FAILURE); break;
         }
     }
-    int ii = ini_parse(cfg.config_file, config_parser, &cfg);
-    if (ii < 0 && cfg.config_file_touched) fprintf(stderr, "can't load '%s'\n", cfg.config_file);
-    if (ii > 0 && verbose) fprintf( stderr, "config file parsing error in l.%i\n", ii );
     return cfg;
 }
 
@@ -485,6 +504,14 @@ static funcsel_t selectfun( const char* name, const char* params ) {
     } else if (!strcmp(name, "?")) {
         f.fun = &bfun_minkowski;
     } else {
+        if (!strcmp(name, "LIST"))
+            fprintf( stderr, "available functions:\n"
+                     "  power:  x->x^a\n"
+                     "  log:    x->normalize(log( (x-a)/(b-a) ))\n"
+                     "  exp:    x->normalize(exp( (x-a)/(b-a) ))\n"
+                     "  gamma:  x->normalize(tgammaf( (x-a)/(b-a) ))\n"
+                     "  sin:    x->sin(M_PI/2 * x)\n"
+                     "  linear: x->x\n" );
         f.fun = &bfun_linear;
     }
     return f;
