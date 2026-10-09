@@ -8,11 +8,23 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
+#include <systemd/sd-bus.h>
+#include <systemd/sd-event.h>
+
 #include "inih/ini.h"
+
+#define BUS_NAME  "org.BacklightTooler"
+#define BUS_PATH  "/org/BacklightTooler"
+#define BUS_IFACE "org.BacklightTooler"
+#define USEC_PER_SEC 1000000ULL
+
+enum { ACTION_SET, ACTION_RELOAD, ACTION_STATUS };
 
 typedef struct brightness_t brightness_t;
 typedef struct {
@@ -44,11 +56,26 @@ struct config_t {
     char function_name[32];
     char function_params[512];
 
+    // seconds between automatic updates in daemon mode, 0 disables them
+    uint64_t daemon_interval;
+
     float value_percent;
 
     char config_file[512];
     int config_file_touched;
+    // return value of ini_parse(): 0 ok, <0 unreadable, >0 first bad line
+    int config_file_status;
+
+    int daemon_mode;
+    int bus_action;
+    // set by options that only make sense when we do the work ourselves
+    int local_only;
 };
+typedef struct {
+    double webcam; // last measured webcam value in [0,1], -1 if none yet
+    double screen;
+    double kbd;
+} levels_t;
 static const config_t config_defaults = {
     .webcam_path = "/dev/video0",
     .webcam_br_min = 72,
@@ -66,6 +93,8 @@ static const config_t config_defaults = {
     .function_name = "exp",
     .function_params = "0.0,3.0",
 
+    .daemon_interval = 900,
+
     // auto mode, every other value is used for non-auto (inc/dec) mode
     .value_percent = FLT_MAX,
 
@@ -81,49 +110,308 @@ static float brightness_get( brightness_t* b );
 static void brightness_free( brightness_t* b );
 static funcsel_t selectfun( const char* name, const char* params );
 static config_t parse_args( int* pargc, char*** pargv );
+static int run_once( const config_t* cfg, float value_percent, levels_t* lvl );
+static int daemon_run( int argc, char** argv, const config_t* cfg );
+static int client_run( const config_t* cfg );
 
 int main(int argc, char** argv) {
 
     config_t cfg = parse_args(&argc, &argv);
 
-    brightness_t* b = brightness_init( cfg.screen_path );
-    if (!b) return EXIT_FAILURE;
+    if (cfg.daemon_mode)
+        return daemon_run(argc, argv, &cfg) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-    int auto_mode = (cfg.value_percent == FLT_MAX);
-    if (auto_mode) {
-        float wval = webcam_read( cfg.webcam_path, cfg.webcam_br_min, cfg.webcam_br_max, cfg.webcam_nx, cfg.webcam_ny );
+    // hand the request to a running daemon if there is one, otherwise do the
+    // work ourselves
+    if (!cfg.local_only || cfg.bus_action != ACTION_SET) {
+        int r = client_run(&cfg);
+        if (r > 0) return EXIT_SUCCESS;
+        if (r < 0) return EXIT_FAILURE;
+    }
+    if (cfg.bus_action != ACTION_SET) {
+        fprintf( stderr, "backlight-tooler daemon is not running\n" );
+        return EXIT_FAILURE;
+    }
+
+    levels_t lvl = { -1, -1, -1 };
+    return run_once(&cfg, cfg.value_percent, &lvl) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+// value_percent == FLT_MAX means auto mode, every other value is a relative
+// change in percent
+static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
+
+    brightness_t* b = brightness_init( cfg->screen_path );
+    if (!b) return -1;
+
+    float val;
+    if (value_percent == FLT_MAX) {
+        float wval = webcam_read( cfg->webcam_path, cfg->webcam_br_min, cfg->webcam_br_max, cfg->webcam_nx, cfg->webcam_ny );
         if (wval < 0.0) wval = 0.0;
         if (wval > 1.0) wval = 1.0;
         if (verbose) fprintf( stderr, "read brightness: %3.0f%%\n", wval*100.0 );
-        funcsel_t f = selectfun( cfg.function_name, cfg.function_params );
-        cfg.value_percent = (*f.fun)( wval, cfg.screen_br_min, f.p );
+        lvl->webcam = wval;
+        funcsel_t f = selectfun( cfg->function_name, cfg->function_params );
+        val = (*f.fun)( wval, cfg->screen_br_min, f.p );
     } else {
-        float xval = brightness_get(b) + cfg.value_percent/100.0;
-        if (xval < cfg.screen_br_min) xval = cfg.screen_br_min;
-        if (xval > 1.0) xval = 1.0;
-        cfg.value_percent = xval;
+        val = brightness_get(b) + value_percent/100.0;
+        if (val < cfg->screen_br_min) val = cfg->screen_br_min;
+        if (val > 1.0) val = 1.0;
     }
 
-
-    if (verbose) fprintf( stderr, "anticipated brightness %3.0f%%\n", cfg.value_percent*100.0 );
-    brightness_set(b, cfg.value_percent);
+    if (verbose) fprintf( stderr, "anticipated brightness %3.0f%%\n", val*100.0 );
+    brightness_set(b, val);
     brightness_free(b);
+    lvl->screen = val;
 
-    brightness_t* k = brightness_init( cfg.kbd_path );
-    if (!k) return EXIT_FAILURE;
+    brightness_t* k = brightness_init( cfg->kbd_path );
+    if (!k) return -1;
 
-    float kval = cfg.value_percent;
-    if (kval >= cfg.kbd_br_max) {
+    float kval = val;
+    if (kval >= cfg->kbd_br_max) {
         kval = 0.0;
     } else {
-        kval = kval/cfg.kbd_br_max;
+        kval = kval/cfg->kbd_br_max;
         if (kval > 1.0) kval = 1.0;
-        if (kval <= cfg.kbd_val_min) kval = cfg.kbd_val_min;
+        if (kval <= cfg->kbd_val_min) kval = cfg->kbd_val_min;
     }
     if (verbose)
-        fprintf( stderr, "kbd value after bounds (%.2f,%.2f): %.2f\n", cfg.kbd_br_max, cfg.kbd_val_min, kval );
+        fprintf( stderr, "kbd value after bounds (%.2f,%.2f): %.2f\n", cfg->kbd_br_max, cfg->kbd_val_min, kval );
     brightness_set(k, kval);
     brightness_free(k);
+    lvl->kbd = kval;
+    return 0;
+}
+
+static uint64_t now_usec( clockid_t clock ) {
+    struct timespec ts;
+    clock_gettime(clock, &ts);
+    return (uint64_t)ts.tv_sec * USEC_PER_SEC + ts.tv_nsec / 1000;
+}
+
+typedef struct {
+    // kept to re-run the option parsing on config reloads, such that command
+    // line options keep overriding the config file
+    int argc;
+    char** argv;
+    config_t cfg;
+
+    levels_t lvl;
+    uint64_t last_update; // CLOCK_REALTIME, usec
+    uint64_t interval; // usec
+
+    sd_bus* bus;
+    sd_event_source* timer;
+} daemon_t;
+
+static int daemon_update( daemon_t* d, float value_percent ) {
+    int r = run_once(&d->cfg, value_percent, &d->lvl);
+    if (r < 0) return r;
+    d->last_update = now_usec(CLOCK_REALTIME);
+    sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE,
+            "WebcamValue", "ScreenBrightness", "KbdBrightness", "LastUpdate", NULL);
+    return 0;
+}
+
+static void daemon_schedule( daemon_t* d ) {
+    if (d->interval == 0) {
+        sd_event_source_set_enabled(d->timer, SD_EVENT_OFF);
+        return;
+    }
+    sd_event_source_set_time_relative(d->timer, d->interval);
+    sd_event_source_set_enabled(d->timer, SD_EVENT_ONESHOT);
+}
+
+static int daemon_reload( daemon_t* d, sd_bus_error* err ) {
+    config_t cfg = parse_args(&d->argc, &d->argv);
+    if (cfg.config_file_status < 0)
+        return sd_bus_error_setf(err, SD_BUS_ERROR_FILE_NOT_FOUND,
+                "cannot read '%s'", cfg.config_file);
+    if (cfg.config_file_status > 0)
+        return sd_bus_error_setf(err, SD_BUS_ERROR_INVALID_FILE_CONTENT,
+                "'%s': parse error in l.%i", cfg.config_file, cfg.config_file_status);
+
+    d->cfg = cfg;
+    uint64_t interval = cfg.daemon_interval * USEC_PER_SEC;
+    if (interval != d->interval) {
+        d->interval = interval;
+        daemon_schedule(d);
+    }
+    fprintf( stderr, "reloaded config from '%s'\n", cfg.config_file );
+    sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE, "Interval", "ConfigFile", NULL);
+    return 0;
+}
+
+static int on_timer( sd_event_source* s, uint64_t usec, void* userdata ) {
+    (void)s; (void)usec;
+    daemon_t* d = userdata;
+    if (daemon_update(d, FLT_MAX) < 0)
+        fprintf( stderr, "automatic update failed\n" );
+    daemon_schedule(d);
+    return 0;
+}
+
+static int on_sighup( sd_event_source* s, const struct signalfd_siginfo* si, void* userdata ) {
+    (void)s; (void)si;
+    sd_bus_error err = SD_BUS_ERROR_NULL;
+    if (daemon_reload(userdata, &err) < 0)
+        fprintf( stderr, "config reload failed: %s\n", err.message );
+    sd_bus_error_free(&err);
+    return 0;
+}
+
+static int method_update( sd_bus_message* m, void* userdata, sd_bus_error* err ) {
+    if (daemon_update(userdata, FLT_MAX) < 0)
+        return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not set brightness");
+    return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_adjust( sd_bus_message* m, void* userdata, sd_bus_error* err ) {
+    double delta;
+    int r = sd_bus_message_read(m, "d", &delta);
+    if (r < 0) return r;
+    if (!isfinite(delta) || fabs(delta) > 1.0)
+        return sd_bus_error_set(err, SD_BUS_ERROR_INVALID_ARGS, "delta must be in [-1,1]");
+    if (daemon_update(userdata, delta*100.0) < 0)
+        return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not set brightness");
+    return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_reload( sd_bus_message* m, void* userdata, sd_bus_error* err ) {
+    int r = daemon_reload(userdata, err);
+    if (r < 0) return r;
+    return sd_bus_reply_method_return(m, NULL);
+}
+
+static int get_config_file( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                            sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
+    (void)bus; (void)path; (void)iface; (void)prop; (void)err;
+    daemon_t* d = userdata;
+    return sd_bus_message_append(reply, "s", d->cfg.config_file);
+}
+
+static const sd_bus_vtable daemon_vtable[] = {
+    SD_BUS_VTABLE_START(0),
+    SD_BUS_PROPERTY("WebcamValue", "d", NULL, offsetof(daemon_t, lvl.webcam), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("ScreenBrightness", "d", NULL, offsetof(daemon_t, lvl.screen), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("KbdBrightness", "d", NULL, offsetof(daemon_t, lvl.kbd), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("LastUpdate", "t", NULL, offsetof(daemon_t, last_update), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("Interval", "t", NULL, offsetof(daemon_t, interval), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("ConfigFile", "s", get_config_file, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_METHOD("Update", "", "", method_update, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("Adjust", "d", "", method_adjust, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("ReloadConfig", "", "", method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_VTABLE_END
+};
+
+static int daemon_run( int argc, char** argv, const config_t* cfg ) {
+    daemon_t d = {
+        .argc = argc,
+        .argv = argv,
+        .cfg = *cfg,
+        .lvl = { -1, -1, -1 },
+        .interval = cfg->daemon_interval * USEC_PER_SEC,
+    };
+    sd_event* event = NULL;
+    const char* what;
+    int r;
+
+    what = "sd_event_default";
+    if ((r = sd_event_default(&event)) < 0) goto fail;
+    what = "sd_event_set_signal_exit";
+    if ((r = sd_event_set_signal_exit(event, 1)) < 0) goto fail;
+    what = "sd_event_add_signal";
+    if ((r = sd_event_add_signal(event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, &d)) < 0) goto fail;
+    // fires right away for the initial update; BOOTTIME so that we catch up
+    // after a suspend
+    what = "sd_event_add_time_relative";
+    if ((r = sd_event_add_time_relative(event, &d.timer, CLOCK_BOOTTIME, 0, 0, on_timer, &d)) < 0) goto fail;
+
+    what = "sd_bus_open_user";
+    if ((r = sd_bus_open_user(&d.bus)) < 0) goto fail;
+    what = "sd_bus_add_object_vtable";
+    if ((r = sd_bus_add_object_vtable(d.bus, NULL, BUS_PATH, BUS_IFACE, daemon_vtable, &d)) < 0) goto fail;
+    what = "sd_bus_request_name";
+    if ((r = sd_bus_request_name(d.bus, BUS_NAME, 0)) < 0) goto fail;
+    what = "sd_bus_attach_event";
+    if ((r = sd_bus_attach_event(d.bus, event, SD_EVENT_PRIORITY_NORMAL)) < 0) goto fail;
+
+    what = "sd_event_loop";
+    r = sd_event_loop(event);
+
+fail:
+    if (r < 0) fprintf( stderr, "%s: %s\n", what, strerror(-r) );
+    sd_event_source_unref(d.timer);
+    sd_bus_flush_close_unref(d.bus);
+    sd_event_unref(event);
+    return r;
+}
+
+static int client_status( sd_bus* bus, sd_bus_error* err ) {
+    static const char* names[] = { "WebcamValue", "ScreenBrightness", "KbdBrightness" };
+    double val[3];
+    uint64_t last, interval;
+    char* config_file = NULL;
+    int r;
+    for (int i=0; i<3; ++i)
+        if ((r = sd_bus_get_property_trivial(bus, BUS_NAME, BUS_PATH, BUS_IFACE, names[i], err, 'd', &val[i])) < 0)
+            return r;
+    if ((r = sd_bus_get_property_trivial(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "LastUpdate", err, 't', &last)) < 0)
+        return r;
+    if ((r = sd_bus_get_property_trivial(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Interval", err, 't', &interval)) < 0)
+        return r;
+    if ((r = sd_bus_get_property_string(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "ConfigFile", err, &config_file)) < 0)
+        return r;
+
+    char tbuf[64] = "never";
+    if (last) {
+        time_t t = last / USEC_PER_SEC;
+        strftime(tbuf, sizeof tbuf, "%F %T", localtime(&t));
+    }
+    if (val[0] < 0) printf( "webcam:      n/a\n" );
+    else printf( "webcam:      %3.0f%%\n", val[0]*100.0 );
+    printf( "screen:      %3.0f%%\n", val[1]*100.0 );
+    printf( "keyboard:    %3.0f%%\n", val[2]*100.0 );
+    printf( "last update: %s\n", tbuf );
+    if (interval) printf( "interval:    %lus\n", (unsigned long)(interval / USEC_PER_SEC) );
+    else printf( "interval:    off\n" );
+    printf( "config file: %s\n", config_file );
+    free(config_file);
+    return 0;
+}
+
+// 1: the daemon handled the request, 0: no daemon reachable, <0: error
+static int client_run( const config_t* cfg ) {
+    sd_bus* bus = NULL;
+    sd_bus_error err = SD_BUS_ERROR_NULL;
+    int r = sd_bus_open_user(&bus);
+    if (r < 0) {
+        if (verbose) fprintf( stderr, "cannot connect to user bus: %s\n", strerror(-r) );
+        return 0;
+    }
+
+    if (cfg->bus_action == ACTION_STATUS)
+        r = client_status(bus, &err);
+    else if (cfg->bus_action == ACTION_RELOAD)
+        r = sd_bus_call_method(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "ReloadConfig", &err, NULL, "");
+    else if (cfg->value_percent == FLT_MAX)
+        r = sd_bus_call_method(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Update", &err, NULL, "");
+    else
+        r = sd_bus_call_method(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Adjust", &err, NULL, "d",
+                               (double)cfg->value_percent/100.0);
+
+    if (r >= 0) {
+        if (verbose) fprintf( stderr, "request handled by daemon\n" );
+        r = 1;
+    } else if (sd_bus_error_has_names(&err, SD_BUS_ERROR_SERVICE_UNKNOWN, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+        if (verbose) fprintf( stderr, "no daemon on the user bus\n" );
+        r = 0;
+    } else {
+        fprintf( stderr, "daemon: %s\n", err.message ? err.message : strerror(-r) );
+    }
+    sd_bus_error_free(&err);
+    sd_bus_flush_close_unref(bus);
+    return r;
 }
 
 static void strcpy_last( char* out, const char* in ) {
@@ -155,6 +443,7 @@ static int config_parser( void* c_, const char* section, const char* name, const
     MATCH("kbd", "val_min", c->kbd_val_min = atof(value));
     MATCH("function", "name", strcpy(c->function_name, value));
     MATCH("function", "params", strcpy(c->function_params, value));
+    MATCH("daemon", "interval", c->daemon_interval = labs(atol(value)));
 
     #define AMATCH( n, ... ) \
     if (strcmp(name, (n)) == 0) { \
@@ -187,6 +476,7 @@ static int atou64N( const char* str_, uint64_t* ary, int ary_max );
 
 static void parse_config_file( config_t* cfg ) {
     int ii = ini_parse(cfg->config_file, config_parser, cfg);
+    cfg->config_file_status = ii;
     if (ii < 0 && cfg->config_file_touched) fprintf(stderr, "can't load '%s'\n", cfg->config_file);
     if (ii > 0 && verbose) fprintf( stderr, "config file parsing error in l.%i\n", ii );
 }
@@ -201,9 +491,10 @@ static config_t parse_args( int* pargc, char*** pargv ) {
 
     // we do option parsing twice in order to first find a config file, and then
     // override options found in the config file
-    while ((opt = getopt(*pargc, *pargv, ":c:v:V W:w:d: S:s: K:k:m: F:f: h")) != -1) {
+    optind = 1;
+    while ((opt = getopt(*pargc, *pargv, ":c:v:V W:w:d: S:s: K:k:m: F:f: DRg h")) != -1) {
         switch (opt) {
-            case 'c': strcpy(cfg.config_file, optarg); cfg.config_file_touched=1; break;
+            case 'c': strcpy(cfg.config_file, optarg); cfg.config_file_touched=1; cfg.local_only=1; break;
             case 'v': if (strcmp(optarg, "auto") != 0) cfg.value_percent = atof(optarg); break;
             case 'V': verbose = 1; break;
             default: break;
@@ -211,26 +502,30 @@ static config_t parse_args( int* pargc, char*** pargv ) {
     }
     parse_config_file(&cfg);
     optind = 1;
-    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: h")) != -1) {
+    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: DRg h")) != -1) {
         switch (opt) {
             // handled above
             case 'c':
             case 'v':
             case 'V': break;
 
-            case 'W': strcpy(cfg.webcam_path, optarg); break;
-            case 'w': atou64N(optarg, &cfg.webcam_br_min, 2); break;
-            case 'd': atou64N(optarg, &cfg.webcam_nx, 2); break;
+            case 'D': cfg.daemon_mode = 1; break;
+            case 'R': cfg.bus_action = ACTION_RELOAD; break;
+            case 'g': cfg.bus_action = ACTION_STATUS; break;
 
-            case 'S': strcpy(cfg.screen_path, optarg); break;
-            case 's': cfg.screen_br_min = atof(optarg); break;
+            case 'W': strcpy(cfg.webcam_path, optarg); cfg.local_only = 1; break;
+            case 'w': atou64N(optarg, &cfg.webcam_br_min, 2); cfg.local_only = 1; break;
+            case 'd': atou64N(optarg, &cfg.webcam_nx, 2); cfg.local_only = 1; break;
 
-            case 'K': strcpy(cfg.kbd_path, optarg); break;
-            case 'k': cfg.kbd_br_max = atof(optarg); break;
-            case 'm': cfg.kbd_val_min = atof(optarg); break;
+            case 'S': strcpy(cfg.screen_path, optarg); cfg.local_only = 1; break;
+            case 's': cfg.screen_br_min = atof(optarg); cfg.local_only = 1; break;
 
-            case 'F': strcpy(cfg.function_name, optarg); break;
-            case 'f': strcpy(cfg.function_params, optarg); break;
+            case 'K': strcpy(cfg.kbd_path, optarg); cfg.local_only = 1; break;
+            case 'k': cfg.kbd_br_max = atof(optarg); cfg.local_only = 1; break;
+            case 'm': cfg.kbd_val_min = atof(optarg); cfg.local_only = 1; break;
+
+            case 'F': strcpy(cfg.function_name, optarg); cfg.local_only = 1; break;
+            case 'f': strcpy(cfg.function_params, optarg); cfg.local_only = 1; break;
 
             case 'h': fprintf( stderr,
 "Usage: %s [-c /path/to/config/file] [-v percent|auto] [-V:verbose]\n"
@@ -239,7 +534,8 @@ static config_t parse_args( int* pargc, char*** pargv ) {
 "       %s [-s screen min brightness (rel value)] [-K /path/to/keyboard/]\n"
 "       %s [-k kbd upper bdy (rel val)] [-m kbd lower bdy replace (rel val)]\n"
 "       %s [-F function name] [-f function params (a,b,c,…)] [-h:this help]\n"
-                                   , *pargv[0], pad, pad, pad, pad, pad );
+"       %s [-D:run as daemon] [-R:reload daemon config] [-g:print daemon status]\n"
+                                   , *pargv[0], pad, pad, pad, pad, pad, pad );
                       exit(EXIT_SUCCESS); break;
             case ':':
             case '?':

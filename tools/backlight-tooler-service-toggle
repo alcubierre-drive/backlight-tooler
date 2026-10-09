@@ -1,22 +1,21 @@
 #!/bin/bash
 
-# Small script for toggling the timer, use for keybindings
+# Small script for toggling the daemon, use for keybindings
 
 title="Automatic Backlight Control"
-runstring="started - every 15 min"
+runstring="started"
 stopstring="stopped"
 
-status_before="$(systemctl --user is-active backlight-tooler.timer)"
+status_before="$(systemctl --user is-active backlight-tooler.service)"
 
 if [ $? -eq 0 ]; then
-    systemctl --user stop backlight-tooler.timer
+    systemctl --user stop backlight-tooler.service
     notify-send "$title" "$stopstring"
 else
     systemctl --user start backlight-tooler.service
-    systemctl --user start backlight-tooler.timer
     notify-send "$title" "$runstring"
 fi
 
-status_after="$(systemctl --user is-active backlight-tooler.timer)"
+status_after="$(systemctl --user is-active backlight-tooler.service)"
 
 echo "changing from ${status_before} to ${status_after}"

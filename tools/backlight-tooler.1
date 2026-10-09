@@ -64,6 +64,21 @@ interval [0,1] to [0,1]. Available functions: linear, pow, exp, log, gamma.
 A function (set with \fB-F\fR) might need parameters. Those can be set here; as
 comma-separated list.
 .br
+.B -D
+.br
+run as daemon: own \fBorg.BacklightTooler\fR on the user bus, adjust the
+backlight automatically every \fIinterval\fR seconds (config section
+\fB[daemon]\fR), and serve requests from other invocations. SIGHUP reloads the
+config.
+.br
+.B -R
+.br
+make the running daemon reload its config file.
+.br
+.B -g
+.br
+print the current values from the running daemon.
+.br
 .B -h
 .br
 show this help, but in a slightly more compressed form.
@@ -71,8 +86,12 @@ show this help, but in a slightly more compressed form.
 .B backlight-tooler-service-toggle
 
 .SH USAGE
-The systemd-user timer \fBbacklight-tooler.timer\fR can be enabled / started to
-get automatic handling every 15 minutes.
+The systemd user service \fBbacklight-tooler.service\fR can be enabled / started
+to get automatic handling (every 15 minutes by default). While it runs,
+\fB-v\fR requests are forwarded to it over D-Bus; otherwise, or when options
+overriding the config (\fB-c -W -w -d -S -s -K -k -m -F -f\fR) are given,
+backlight-tooler sets the backlight itself. See README.md for the D-Bus
+interface.
 
 .SH CONFIG
 

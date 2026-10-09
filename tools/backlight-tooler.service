@@ -2,5 +2,11 @@
 Description=Automated Backlight Setting
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/backlight-tooler
+Type=dbus
+BusName=org.BacklightTooler
+ExecStart=/usr/bin/backlight-tooler -D
+ExecReload=/usr/bin/backlight-tooler -R
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -3,8 +3,9 @@ BINARY := backlight-tooler
 PREFIX ?= /
 CC := gcc
 CCLD := gcc
-CFLAGS += -Wall -Wextra -pedantic
-LDFLAGS := -lm -Wall -Wextra -pedantic $(LDFLAGS)
+CFLAGS += -Wall -Wextra -pedantic $(shell pkg-config --cflags libsystemd)
+LDFLAGS := -Wall -Wextra -pedantic $(LDFLAGS)
+LDLIBS := -lm $(shell pkg-config --libs libsystemd)
 
 .PHONY: all install types clean
 
@@ -14,7 +15,7 @@ OBJECTS := $(patsubst %.c,%.c.o,$(SOURCE))
 all: $(BINARY)
 
 $(BINARY): $(OBJECTS)
-	$(CCLD) $(LDFLAGS) $^ -o $@
+	$(CCLD) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 -include *.d
 
@@ -29,7 +30,7 @@ install:
 	mkdir -p $(PREFIX)/usr/share/man/man1/
 	mkdir -p $(PREFIX)/usr/lib/udev/rules.d/
 	cp backlight-tooler $(PREFIX)/usr/bin/
-	cp tools/backlight-tooler.{service,timer} $(PREFIX)/usr/lib/systemd/user/
+	cp tools/backlight-tooler.service $(PREFIX)/usr/lib/systemd/user/
 	cp tools/backlight-tooler-service-toggle $(PREFIX)/usr/bin/
 	cp tools/backlight-tooler.conf $(PREFIX)/etc/
 	cp tools/99-backlight-tooler-permissions.rules $(PREFIX)/usr/lib/udev/rules.d/
