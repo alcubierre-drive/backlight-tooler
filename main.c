@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <float.h>
+#include <errno.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -152,7 +153,11 @@ static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
     float val;
     if (value_percent == FLT_MAX) {
         float wval = webcam_read( cfg->webcam_path, cfg->webcam_br_min, cfg->webcam_br_max, cfg->webcam_nx, cfg->webcam_ny );
-        if (wval < 0.0) wval = 0.0;
+        // no reading: leave the brightness (and the levels) as they are
+        if (wval < 0.0) {
+            brightness_free(b);
+            return -1;
+        }
         if (wval > 1.0) wval = 1.0;
         if (verbose) fprintf( stderr, "read brightness: %3.0f%%\n", wval*100.0 );
         lvl->webcam = wval;
@@ -164,6 +169,13 @@ static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
         if (val > 1.0) val = 1.0;
     }
 
+    if (!isfinite(val)) {
+        fprintf( stderr, "brightness function '%s' gave no number\n", cfg->function_name );
+        brightness_free(b);
+        return -1;
+    }
+    if (val < 0.0) val = 0.0;
+    if (val > 1.0) val = 1.0;
     if (verbose) fprintf( stderr, "anticipated brightness %3.0f%%\n", val*100.0 );
     brightness_set(b, val);
     brightness_free(b);
@@ -273,7 +285,7 @@ static int on_sighup( sd_event_source* s, const struct signalfd_siginfo* si, voi
 
 static int method_update( sd_bus_message* m, void* userdata, sd_bus_error* err ) {
     if (daemon_update(userdata, FLT_MAX) < 0)
-        return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not set brightness");
+        return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not measure or set brightness");
     return sd_bus_reply_method_return(m, NULL);
 }
 
@@ -631,73 +643,88 @@ static config_t parse_args( int* pargc, char*** pargv ) {
 }
 
 
+// -1 if the webcam can't be read (missing, or busy with another program)
 static float webcam_read( const char* name, float min, float max, unsigned width, unsigned height ) {
     int fd = open(name, O_RDWR);
     if (fd == -1) {
         fprintf( stderr, "cannot open file '%s'\n", name );
-        return 0.5; // safe value in case we cannot read webcam
+        return -1;
     }
-    struct v4l2_capability cap;
+    void* buffer_start = MAP_FAILED;
+    size_t length = 0;
+    struct v4l2_buffer bufferinfo;
+    int type = V4L2_BUF_TYPE_VIDEO_CAPTURE, streaming = 0;
+    const char* what;
+
     struct v4l2_format format;
-    ioctl(fd, VIDIOC_QUERYCAP, &cap);
+    memset(&format, 0, sizeof(format));
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
     format.fmt.pix.width = width;
     format.fmt.pix.height = height;
+    // EBUSY here if another program streams from the webcam
+    what = "set the format";
+    if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) goto fail;
 
-    ioctl(fd, VIDIOC_S_FMT, &format);
     struct v4l2_requestbuffers bufrequest;
+    memset(&bufrequest, 0, sizeof(bufrequest));
     bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufrequest.memory = V4L2_MEMORY_MMAP;
     bufrequest.count = 1;
+    what = "request a buffer";
+    if (ioctl(fd, VIDIOC_REQBUFS, &bufrequest) < 0 || bufrequest.count < 1) goto fail;
 
-    ioctl(fd, VIDIOC_REQBUFS, &bufrequest);
-    struct v4l2_buffer bufferinfo;
     memset(&bufferinfo, 0, sizeof(bufferinfo));
-
     bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufferinfo.memory = V4L2_MEMORY_MMAP;
     bufferinfo.index = 0;
+    what = "query the buffer";
+    if (ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo) < 0 || bufferinfo.length == 0) goto fail;
 
-    ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo);
+    length = bufferinfo.length;
+    what = "map the buffer";
+    buffer_start = mmap( NULL, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, bufferinfo.m.offset );
+    if (buffer_start == MAP_FAILED) goto fail;
+    memset(buffer_start, 0, length);
 
-    void* buffer_start = mmap(
-        NULL,
-        bufferinfo.length,
-        PROT_READ | PROT_WRITE,
-        MAP_SHARED,
-        fd,
-        bufferinfo.m.offset
-    );
-
-    memset(buffer_start, 0, bufferinfo.length);
     memset(&bufferinfo, 0, sizeof(bufferinfo));
-
     bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufferinfo.memory = V4L2_MEMORY_MMAP;
     bufferinfo.index = 0;
-
-    int type = bufferinfo.type;
-    ioctl(fd, VIDIOC_STREAMON, &type);
-    ioctl(fd, VIDIOC_QBUF, &bufferinfo);
-    ioctl(fd, VIDIOC_DQBUF, &bufferinfo);
+    what = "capture a frame";
+    if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) goto fail;
+    streaming = 1;
+    if (ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0 ||
+        ioctl(fd, VIDIOC_DQBUF, &bufferinfo) < 0) goto fail;
     ioctl(fd, VIDIOC_STREAMOFF, &type);
+    streaming = 0;
 
+    size_t used = bufferinfo.bytesused && bufferinfo.bytesused <= length ? bufferinfo.bytesused : length;
     long total = 0;
-    unsigned i = 0;
-    for (i = 0; i<bufferinfo.length; ++i)
+    for (size_t i = 0; i<used; ++i)
         total += ((unsigned char*)buffer_start)[i];
-    munmap(buffer_start, bufferinfo.length);
+    munmap(buffer_start, length);
     close(fd);
-    float val = (float)total/(float)i;
+    float val = (float)total/(float)used;
     if (verbose)
         fprintf( stderr, "read value %.2f from webcam, bounds (%.2f,%.2f)\n", val, min, max );
     float res = (val - min)/(max - min);
+    if (!isfinite(res)) {
+        fprintf( stderr, "webcam '%s': no usable reading (bounds (%.2f,%.2f))\n", name, min, max );
+        return -1;
+    }
     if (res < 0.0) return 0.0;
     if (res > 1.0) return 1.0;
     if (verbose)
         fprintf( stderr, "webcam effective value is %.2f\n", res );
     return res;
+
+fail:
+    fprintf( stderr, "webcam '%s': cannot %s: %s\n", name, what, strerror(errno) );
+    if (streaming) ioctl(fd, VIDIOC_STREAMOFF, &type);
+    if (buffer_start != MAP_FAILED) munmap(buffer_start, length);
+    close(fd);
+    return -1;
 }
 
 struct brightness_t {

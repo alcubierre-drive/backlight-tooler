@@ -29,13 +29,13 @@ The daemon owns `org.BacklightTooler` on the user bus, object
 | Member | Type | |
 |---|---|---|
 | `WebcamValue` | property `d` | last webcam reading in [0,1], -1 if none yet |
-| `ScreenBrightness` | property `d` | screen brightness in [0,1] |
-| `KbdBrightness` | property `d` | keyboard brightness in [0,1] |
+| `ScreenBrightness` | property `d` | screen brightness in [0,1], -1 if none yet |
+| `KbdBrightness` | property `d` | keyboard brightness in [0,1], -1 if none yet |
 | `LastUpdate` | property `t` | time of last change, µs since the epoch |
 | `Interval` | property `t`, writable | automatic update interval in µs, 0 = off; see below |
 | `ConfigInterval` | property `t` | `[daemon] interval` of the loaded config, in µs |
 | `ConfigFile` | property `s` | config file in use |
-| `Update()` | method | measure and set brightness now |
+| `Update()` | method | measure and set brightness now; fails and changes nothing if the webcam can't be read (missing, or busy with another program) |
 | `Adjust(d delta)` | method | change screen brightness by delta in [-1,1] |
 | `ReloadConfig()` | method | re-read the config file; fails and keeps the old config if the file is unreadable or malformed |
 
