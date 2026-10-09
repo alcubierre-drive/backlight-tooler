@@ -23,8 +23,12 @@
 #define BUS_PATH  "/org/BacklightTooler"
 #define BUS_IFACE "org.BacklightTooler"
 #define USEC_PER_SEC 1000000ULL
+// bounds for an Interval set over the bus (0 is always accepted)
+#define INTERVAL_MIN_USEC (1ULL * USEC_PER_SEC)
+#define INTERVAL_MAX_USEC (366ULL * 24 * 3600 * USEC_PER_SEC)
 
-enum { ACTION_SET, ACTION_RELOAD, ACTION_STATUS };
+enum { ACTION_SET, ACTION_RELOAD, ACTION_STATUS, ACTION_TIMER };
+enum { TIMER_ON, TIMER_OFF, TIMER_TOGGLE };
 
 typedef struct brightness_t brightness_t;
 typedef struct {
@@ -68,6 +72,7 @@ struct config_t {
 
     int daemon_mode;
     int bus_action;
+    int timer_action; // with ACTION_TIMER
     // set by options that only make sense when we do the work ourselves
     int local_only;
 };
@@ -198,7 +203,9 @@ typedef struct {
 
     levels_t lvl;
     uint64_t last_update; // CLOCK_REALTIME, usec
-    uint64_t interval; // usec
+    // usec; starts out as the config's interval, can be changed over the bus.
+    // a config reload only overrides it if the config's interval changed.
+    uint64_t interval;
 
     sd_bus* bus;
     sd_event_source* timer;
@@ -231,14 +238,18 @@ static int daemon_reload( daemon_t* d, sd_bus_error* err ) {
         return sd_bus_error_setf(err, SD_BUS_ERROR_INVALID_FILE_CONTENT,
                 "'%s': parse error in l.%i", cfg.config_file, cfg.config_file_status);
 
+    // a stopped/changed timer survives the reload unless the config's interval
+    // itself changed
+    int interval_changed = cfg.daemon_interval != d->cfg.daemon_interval;
     d->cfg = cfg;
     uint64_t interval = cfg.daemon_interval * USEC_PER_SEC;
-    if (interval != d->interval) {
+    if (interval_changed && interval != d->interval) {
         d->interval = interval;
         daemon_schedule(d);
     }
     fprintf( stderr, "reloaded config from '%s'\n", cfg.config_file );
-    sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE, "Interval", "ConfigFile", NULL);
+    sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE,
+            "Interval", "ConfigInterval", "ConfigFile", NULL);
     return 0;
 }
 
@@ -290,13 +301,51 @@ static int get_config_file( sd_bus* bus, const char* path, const char* iface, co
     return sd_bus_message_append(reply, "s", d->cfg.config_file);
 }
 
+static int get_interval( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                         sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
+    (void)bus; (void)path; (void)iface; (void)prop; (void)err;
+    daemon_t* d = userdata;
+    return sd_bus_message_append(reply, "t", d->interval);
+}
+
+static int get_config_interval( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                                sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
+    (void)bus; (void)path; (void)iface; (void)prop; (void)err;
+    daemon_t* d = userdata;
+    return sd_bus_message_append(reply, "t", d->cfg.daemon_interval * USEC_PER_SEC);
+}
+
+// 0 stops the timer, every other value (re)starts it with that period from now
+static int set_interval( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                         sd_bus_message* value, void* userdata, sd_bus_error* err ) {
+    (void)path; (void)iface; (void)prop;
+    daemon_t* d = userdata;
+    uint64_t interval;
+    int r = sd_bus_message_read(value, "t", &interval);
+    if (r < 0) return r;
+    // the config's value is always fine, whatever it is
+    if (interval && interval != d->cfg.daemon_interval * USEC_PER_SEC &&
+        (interval < INTERVAL_MIN_USEC || interval > INTERVAL_MAX_USEC))
+        return sd_bus_error_setf(err, SD_BUS_ERROR_INVALID_ARGS,
+                "interval must be 0 or in [%llu,%llu] usec",
+                INTERVAL_MIN_USEC, INTERVAL_MAX_USEC);
+    d->interval = interval;
+    daemon_schedule(d);
+    if (interval) fprintf( stderr, "automatic updates every %.0fs\n", (double)interval / USEC_PER_SEC );
+    else fprintf( stderr, "automatic updates off\n" );
+    sd_bus_emit_properties_changed(bus, BUS_PATH, BUS_IFACE, "Interval", NULL);
+    return 0;
+}
+
 static const sd_bus_vtable daemon_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_PROPERTY("WebcamValue", "d", NULL, offsetof(daemon_t, lvl.webcam), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("ScreenBrightness", "d", NULL, offsetof(daemon_t, lvl.screen), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("KbdBrightness", "d", NULL, offsetof(daemon_t, lvl.kbd), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("LastUpdate", "t", NULL, offsetof(daemon_t, last_update), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-    SD_BUS_PROPERTY("Interval", "t", NULL, offsetof(daemon_t, interval), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_WRITABLE_PROPERTY("Interval", "t", get_interval, set_interval, 0,
+                             SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE | SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_PROPERTY("ConfigInterval", "t", get_config_interval, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("ConfigFile", "s", get_config_file, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_METHOD("Update", "", "", method_update, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Adjust", "d", "", method_adjust, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -380,6 +429,27 @@ static int client_status( sd_bus* bus, sd_bus_error* err ) {
     return 0;
 }
 
+static int client_timer( sd_bus* bus, int action, sd_bus_error* err ) {
+    uint64_t interval = 0, config_interval;
+    int r;
+    if ((r = sd_bus_get_property_trivial(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "ConfigInterval", err, 't', &config_interval)) < 0)
+        return r;
+    if (action == TIMER_TOGGLE) {
+        if ((r = sd_bus_get_property_trivial(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Interval", err, 't', &interval)) < 0)
+            return r;
+        action = interval ? TIMER_OFF : TIMER_ON;
+    }
+    if (action == TIMER_ON) {
+        if (!config_interval)
+            return sd_bus_error_set(err, SD_BUS_ERROR_NOT_SUPPORTED,
+                    "no interval configured ([daemon] interval=0)");
+        interval = config_interval;
+    } else {
+        interval = 0;
+    }
+    return sd_bus_set_property(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Interval", err, "t", interval);
+}
+
 // 1: the daemon handled the request, 0: no daemon reachable, <0: error
 static int client_run( const config_t* cfg ) {
     sd_bus* bus = NULL;
@@ -394,6 +464,8 @@ static int client_run( const config_t* cfg ) {
         r = client_status(bus, &err);
     else if (cfg->bus_action == ACTION_RELOAD)
         r = sd_bus_call_method(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "ReloadConfig", &err, NULL, "");
+    else if (cfg->bus_action == ACTION_TIMER)
+        r = client_timer(bus, cfg->timer_action, &err);
     else if (cfg->value_percent == FLT_MAX)
         r = sd_bus_call_method(bus, BUS_NAME, BUS_PATH, BUS_IFACE, "Update", &err, NULL, "");
     else
@@ -492,7 +564,7 @@ static config_t parse_args( int* pargc, char*** pargv ) {
     // we do option parsing twice in order to first find a config file, and then
     // override options found in the config file
     optind = 1;
-    while ((opt = getopt(*pargc, *pargv, ":c:v:V W:w:d: S:s: K:k:m: F:f: DRg h")) != -1) {
+    while ((opt = getopt(*pargc, *pargv, ":c:v:V W:w:d: S:s: K:k:m: F:f: DRga: h")) != -1) {
         switch (opt) {
             case 'c': strcpy(cfg.config_file, optarg); cfg.config_file_touched=1; cfg.local_only=1; break;
             case 'v': if (strcmp(optarg, "auto") != 0) cfg.value_percent = atof(optarg); break;
@@ -502,7 +574,7 @@ static config_t parse_args( int* pargc, char*** pargv ) {
     }
     parse_config_file(&cfg);
     optind = 1;
-    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: DRg h")) != -1) {
+    while ((opt = getopt(*pargc, *pargv, "c:v:V W:w:d: S:s: K:k:m: F:f: DRga: h")) != -1) {
         switch (opt) {
             // handled above
             case 'c':
@@ -512,6 +584,16 @@ static config_t parse_args( int* pargc, char*** pargv ) {
             case 'D': cfg.daemon_mode = 1; break;
             case 'R': cfg.bus_action = ACTION_RELOAD; break;
             case 'g': cfg.bus_action = ACTION_STATUS; break;
+            case 'a':
+                      cfg.bus_action = ACTION_TIMER;
+                      if (!strcmp(optarg, "on")) cfg.timer_action = TIMER_ON;
+                      else if (!strcmp(optarg, "off")) cfg.timer_action = TIMER_OFF;
+                      else if (!strcmp(optarg, "toggle")) cfg.timer_action = TIMER_TOGGLE;
+                      else {
+                          fprintf( stderr, "-a: expected on, off or toggle, got '%s'\n", optarg );
+                          exit(EXIT_FAILURE);
+                      }
+                      break;
 
             case 'W': strcpy(cfg.webcam_path, optarg); cfg.local_only = 1; break;
             case 'w': atou64N(optarg, &cfg.webcam_br_min, 2); cfg.local_only = 1; break;
@@ -535,7 +617,8 @@ static config_t parse_args( int* pargc, char*** pargv ) {
 "       %s [-k kbd upper bdy (rel val)] [-m kbd lower bdy replace (rel val)]\n"
 "       %s [-F function name] [-f function params (a,b,c,…)] [-h:this help]\n"
 "       %s [-D:run as daemon] [-R:reload daemon config] [-g:print daemon status]\n"
-                                   , *pargv[0], pad, pad, pad, pad, pad, pad );
+"       %s [-a on|off|toggle: daemon's automatic updates]\n"
+                                   , *pargv[0], pad, pad, pad, pad, pad, pad, pad );
                       exit(EXIT_SUCCESS); break;
             case ':':
             case '?':

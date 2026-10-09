@@ -79,6 +79,15 @@ make the running daemon reload its config file.
 .br
 print the current values from the running daemon.
 .br
+.B -a on\fR|\fBoff\fR|\fBtoggle
+.br
+stop (\fBoff\fR) or restart (\fBon\fR) the running daemon's automatic
+updates without stopping the daemon itself; \fBtoggle\fR switches between the
+two. \fBon\fR uses the interval from the daemon's config and fails if that is
+0. This sets the D-Bus property \fBInterval\fR. A config reload keeps the
+setting unless the config's \fIinterval\fR changed. \fB-g\fR shows
+\fIinterval: off\fR while stopped.
+.br
 .B -h
 .br
 show this help, but in a slightly more compressed form.
@@ -90,8 +99,9 @@ The systemd user service \fBbacklight-tooler.service\fR can be enabled / started
 to get automatic handling (every 15 minutes by default). While it runs,
 \fB-v\fR requests are forwarded to it over D-Bus; otherwise, or when options
 overriding the config (\fB-c -W -w -d -S -s -K -k -m -F -f\fR) are given,
-backlight-tooler sets the backlight itself. See README.md for the D-Bus
-interface.
+backlight-tooler sets the backlight itself. \fB-R\fR, \fB-g\fR and
+\fB-a\fR always talk to the daemon and fail if it is not running. See
+README.md for the D-Bus interface.
 
 .SH CONFIG
 
