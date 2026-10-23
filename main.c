@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
 
 // value_percent == FLT_MAX means auto mode, every other value is a relative
 // change in percent
-static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
+static int screen_update( const config_t* cfg, float value_percent, levels_t* lvl ) {
 
     brightness_t* b = brightness_init( cfg->screen_path );
     if (!b) return -1;
@@ -180,11 +180,13 @@ static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
     brightness_set(b, val);
     brightness_free(b);
     lvl->screen = val;
+    return 0;
+}
 
-    brightness_t* k = brightness_init( cfg->kbd_path );
-    if (!k) return -1;
-
-    float kval = val;
+// follows lvl->screen; 1 if it wrote a new value, 0 if the value is the one
+// it last wrote (the keyboard's backlight can be slow to set)
+static int kbd_update( const config_t* cfg, levels_t* lvl ) {
+    float kval = lvl->screen;
     if (kval >= cfg->kbd_br_max) {
         kval = 0.0;
     } else {
@@ -194,10 +196,19 @@ static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
     }
     if (verbose)
         fprintf( stderr, "kbd value after bounds (%.2f,%.2f): %.2f\n", cfg->kbd_br_max, cfg->kbd_val_min, kval );
+    if ((double)kval == lvl->kbd) return 0;
+
+    brightness_t* k = brightness_init( cfg->kbd_path );
+    if (!k) return -1;
     brightness_set(k, kval);
     brightness_free(k);
     lvl->kbd = kval;
-    return 0;
+    return 1;
+}
+
+static int run_once( const config_t* cfg, float value_percent, levels_t* lvl ) {
+    if (screen_update(cfg, value_percent, lvl) < 0) return -1;
+    return kbd_update(cfg, lvl) < 0 ? -1 : 0;
 }
 
 static uint64_t now_usec( clockid_t clock ) {
@@ -224,12 +235,16 @@ typedef struct {
 } daemon_t;
 
 static int daemon_update( daemon_t* d, float value_percent ) {
-    int r = run_once(&d->cfg, value_percent, &d->lvl);
-    if (r < 0) return r;
+    if (screen_update(&d->cfg, value_percent, &d->lvl) < 0) return -1;
     d->last_update = now_usec(CLOCK_REALTIME);
+    // the screen's news goes out before the keyboard is set: with the write
+    // queue empty, sd-bus writes it right away
     sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE,
-            "WebcamValue", "ScreenBrightness", "KbdBrightness", "LastUpdate", NULL);
-    return 0;
+            "WebcamValue", "ScreenBrightness", "LastUpdate", NULL);
+    int r = kbd_update(&d->cfg, &d->lvl);
+    if (r > 0)
+        sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE, "KbdBrightness", NULL);
+    return r < 0 ? -1 : 0;
 }
 
 static void daemon_schedule( daemon_t* d ) {
@@ -261,7 +276,7 @@ static int daemon_reload( daemon_t* d, sd_bus_error* err ) {
     }
     fprintf( stderr, "reloaded config from '%s'\n", cfg.config_file );
     sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE,
-            "Interval", "ConfigInterval", "ConfigFile", NULL);
+            "Interval", "ConfigInterval", "ConfigFile", "ScreenMin", NULL);
     return 0;
 }
 
@@ -313,6 +328,13 @@ static int get_config_file( sd_bus* bus, const char* path, const char* iface, co
     return sd_bus_message_append(reply, "s", d->cfg.config_file);
 }
 
+static int get_screen_min( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                           sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
+    (void)bus; (void)path; (void)iface; (void)prop; (void)err;
+    daemon_t* d = userdata;
+    return sd_bus_message_append(reply, "d", (double)d->cfg.screen_br_min);
+}
+
 static int get_interval( sd_bus* bus, const char* path, const char* iface, const char* prop,
                          sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
     (void)bus; (void)path; (void)iface; (void)prop; (void)err;
@@ -359,6 +381,7 @@ static const sd_bus_vtable daemon_vtable[] = {
                              SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE | SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_PROPERTY("ConfigInterval", "t", get_config_interval, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("ConfigFile", "s", get_config_file, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("ScreenMin", "d", get_screen_min, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_METHOD("Update", "", "", method_update, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Adjust", "d", "", method_adjust, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("ReloadConfig", "", "", method_reload, SD_BUS_VTABLE_UNPRIVILEGED),

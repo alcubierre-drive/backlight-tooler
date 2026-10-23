@@ -35,8 +35,9 @@ The daemon owns `org.BacklightTooler` on the user bus, object
 | `Interval` | property `t`, writable | automatic update interval in µs, 0 = off; see below |
 | `ConfigInterval` | property `t` | `[daemon] interval` of the loaded config, in µs |
 | `ConfigFile` | property `s` | config file in use |
+| `ScreenMin` | property `d` | `[screen] br_min` of the loaded config: `Adjust()` doesn't go below it |
 | `Update()` | method | measure and set brightness now; fails and changes nothing if the webcam can't be read (missing, or busy with another program) |
-| `Adjust(d delta)` | method | change screen brightness by delta in [-1,1] |
+| `Adjust(d delta)` | method | change screen brightness by delta in [-1,1], clamped to [`ScreenMin`,1] |
 | `ReloadConfig()` | method | re-read the config file; fails and keeps the old config if the file is unreadable or malformed |
 
 All properties emit `PropertiesChanged`. `backlight-tooler -g` prints them,
