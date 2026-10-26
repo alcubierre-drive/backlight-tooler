@@ -32,6 +32,7 @@ The daemon owns `org.BacklightTooler` on the user bus, object
 | `ScreenBrightness` | property `d` | screen brightness in [0,1], -1 if none yet |
 | `KbdBrightness` | property `d` | keyboard brightness in [0,1], -1 if none yet |
 | `LastUpdate` | property `t` | time of last change, µs since the epoch |
+| `LastSource` | property `s` | what made the last change: `start` (the update at the daemon's start), `timer` (an automatic update), `update` (`Update()`), `adjust` (`Adjust()`); empty before the first |
 | `Interval` | property `t`, writable | automatic update interval in µs, 0 = off; see below |
 | `ConfigInterval` | property `t` | `[daemon] interval` of the loaded config, in µs |
 | `ConfigFile` | property `s` | config file in use |

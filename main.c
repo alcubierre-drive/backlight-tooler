@@ -226,6 +226,9 @@ typedef struct {
 
     levels_t lvl;
     uint64_t last_update; // CLOCK_REALTIME, usec
+    // what made the last change: "start", "timer", "update", "adjust"; ""
+    // before the first
+    const char* last_source;
     // usec; starts out as the config's interval, can be changed over the bus.
     // a config reload only overrides it if the config's interval changed.
     uint64_t interval;
@@ -234,13 +237,15 @@ typedef struct {
     sd_event_source* timer;
 } daemon_t;
 
-static int daemon_update( daemon_t* d, float value_percent ) {
+static int daemon_update( daemon_t* d, float value_percent, const char* source ) {
     if (screen_update(&d->cfg, value_percent, &d->lvl) < 0) return -1;
     d->last_update = now_usec(CLOCK_REALTIME);
+    d->last_source = source;
     // the screen's news goes out before the keyboard is set: with the write
-    // queue empty, sd-bus writes it right away
+    // queue empty, sd-bus writes it right away. LastSource ahead of the
+    // values, so that a client reading them in order knows why already
     sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE,
-            "WebcamValue", "ScreenBrightness", "LastUpdate", NULL);
+            "LastSource", "WebcamValue", "ScreenBrightness", "LastUpdate", NULL);
     int r = kbd_update(&d->cfg, &d->lvl);
     if (r > 0)
         sd_bus_emit_properties_changed(d->bus, BUS_PATH, BUS_IFACE, "KbdBrightness", NULL);
@@ -283,7 +288,8 @@ static int daemon_reload( daemon_t* d, sd_bus_error* err ) {
 static int on_timer( sd_event_source* s, uint64_t usec, void* userdata ) {
     (void)s; (void)usec;
     daemon_t* d = userdata;
-    if (daemon_update(d, FLT_MAX) < 0)
+    // the timer's first run is the one at the start
+    if (daemon_update(d, FLT_MAX, d->last_update ? "timer" : "start") < 0)
         fprintf( stderr, "automatic update failed\n" );
     daemon_schedule(d);
     return 0;
@@ -299,7 +305,7 @@ static int on_sighup( sd_event_source* s, const struct signalfd_siginfo* si, voi
 }
 
 static int method_update( sd_bus_message* m, void* userdata, sd_bus_error* err ) {
-    if (daemon_update(userdata, FLT_MAX) < 0)
+    if (daemon_update(userdata, FLT_MAX, "update") < 0)
         return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not measure or set brightness");
     return sd_bus_reply_method_return(m, NULL);
 }
@@ -310,7 +316,7 @@ static int method_adjust( sd_bus_message* m, void* userdata, sd_bus_error* err )
     if (r < 0) return r;
     if (!isfinite(delta) || fabs(delta) > 1.0)
         return sd_bus_error_set(err, SD_BUS_ERROR_INVALID_ARGS, "delta must be in [-1,1]");
-    if (daemon_update(userdata, delta*100.0) < 0)
+    if (daemon_update(userdata, delta*100.0, "adjust") < 0)
         return sd_bus_error_set(err, SD_BUS_ERROR_FAILED, "could not set brightness");
     return sd_bus_reply_method_return(m, NULL);
 }
@@ -319,6 +325,13 @@ static int method_reload( sd_bus_message* m, void* userdata, sd_bus_error* err )
     int r = daemon_reload(userdata, err);
     if (r < 0) return r;
     return sd_bus_reply_method_return(m, NULL);
+}
+
+static int get_last_source( sd_bus* bus, const char* path, const char* iface, const char* prop,
+                            sd_bus_message* reply, void* userdata, sd_bus_error* err ) {
+    (void)bus; (void)path; (void)iface; (void)prop; (void)err;
+    daemon_t* d = userdata;
+    return sd_bus_message_append(reply, "s", d->last_source ? d->last_source : "");
 }
 
 static int get_config_file( sd_bus* bus, const char* path, const char* iface, const char* prop,
@@ -377,6 +390,7 @@ static const sd_bus_vtable daemon_vtable[] = {
     SD_BUS_PROPERTY("ScreenBrightness", "d", NULL, offsetof(daemon_t, lvl.screen), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("KbdBrightness", "d", NULL, offsetof(daemon_t, lvl.kbd), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_PROPERTY("LastUpdate", "t", NULL, offsetof(daemon_t, last_update), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+    SD_BUS_PROPERTY("LastSource", "s", get_last_source, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
     SD_BUS_WRITABLE_PROPERTY("Interval", "t", get_interval, set_interval, 0,
                              SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE | SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_PROPERTY("ConfigInterval", "t", get_config_interval, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
